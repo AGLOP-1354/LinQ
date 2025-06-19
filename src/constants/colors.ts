@@ -66,9 +66,9 @@ export const Colors = {
 
   // Priority Colors
   priority: {
-    HIGH: '#EF4444',    // 빨간색 (상)
-    MEDIUM: '#F59E0B',  // 주황색 (중)
-    LOW: '#10B981',     // 초록색 (하)
+    HIGH: '#EF4444', // 빨간색 (상)
+    MEDIUM: '#F59E0B', // 주황색 (중)
+    LOW: '#10B981', // 초록색 (하)
   },
 
   // AI Related Colors
@@ -167,7 +167,7 @@ export const getEventCategoryColor = (category: string) => {
     travel: '#06B6D4', // Cyan
     other: Colors.neutral[500],
   };
-  
+
   return categoryColors[category as keyof typeof categoryColors] || Colors.neutral[500];
 };
 
@@ -177,4 +177,4 @@ export const getPriorityColor = (priority: 'HIGH' | 'MEDIUM' | 'LOW') => {
 
 export const getStatusColor = (status: 'success' | 'warning' | 'error' | 'info') => {
   return Colors.status[status];
-}; 
+};

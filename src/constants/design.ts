@@ -3,25 +3,25 @@ export const Colors = {
   // Primary Colors
   primary: {
     50: '#EFF6FF',
-    100: '#DBEAFE', 
+    100: '#DBEAFE',
     500: '#3B82F6',
     600: '#2563EB',
     700: '#1D4ED8',
   },
-  
+
   // Semantic Colors
   success: '#10B981',
-  warning: '#F59E0B', 
+  warning: '#F59E0B',
   error: '#EF4444',
   info: '#06B6D4',
-  
+
   // Priority Colors
   priority: {
     high: '#EF4444',
     medium: '#F59E0B',
     low: '#10B981',
   },
-  
+
   // Neutral Colors
   gray: {
     50: '#F9FAFB',
@@ -35,14 +35,14 @@ export const Colors = {
     800: '#1F2937',
     900: '#111827',
   },
-  
+
   // Background
   background: {
     primary: '#FFFFFF',
     secondary: '#F9FAFB',
     tertiary: '#F3F4F6',
   },
-  
+
   // Text
   text: {
     primary: '#111827',
@@ -50,7 +50,7 @@ export const Colors = {
     tertiary: '#6B7280',
     inverse: '#FFFFFF',
   },
-  
+
   // Glass morphism
   glass: {
     background: 'rgba(255, 255, 255, 0.8)',
@@ -71,7 +71,7 @@ export const Typography = {
     '3xl': 30,
     '4xl': 36,
   },
-  
+
   // Font Weights
   fontWeight: {
     normal: '400',
@@ -79,7 +79,7 @@ export const Typography = {
     semibold: '600',
     bold: '700',
   },
-  
+
   // Line Heights
   lineHeight: {
     tight: 1.25,
@@ -118,7 +118,7 @@ export const Shadows = {
     shadowRadius: 2,
     elevation: 1,
   },
-  
+
   md: {
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
@@ -126,7 +126,7 @@ export const Shadows = {
     shadowRadius: 6,
     elevation: 3,
   },
-  
+
   lg: {
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 10 },
@@ -134,7 +134,7 @@ export const Shadows = {
     shadowRadius: 15,
     elevation: 5,
   },
-  
+
   floating: {
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 8 },
@@ -150,7 +150,7 @@ export const Animations = {
     normal: 250,
     slow: 350,
   },
-  
+
   easing: {
     ease: 'ease',
     easeIn: 'ease-in',
@@ -186,14 +186,14 @@ export const CardVariants = {
     ...Shadows.md,
     borderRadius: BorderRadius.md,
   },
-  
+
   flat: {
     backgroundColor: Colors.background.primary,
     borderWidth: 1,
     borderColor: Colors.gray[200],
     borderRadius: BorderRadius.md,
   },
-  
+
   glass: {
     backgroundColor: Colors.glass.background,
     borderWidth: 1,
@@ -201,4 +201,4 @@ export const CardVariants = {
     borderRadius: BorderRadius.md,
     backdropFilter: 'blur(10px)',
   },
-}; 
+};

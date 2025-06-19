@@ -1,0 +1,43 @@
+# 의존성 및 빌드 결과물
+node_modules/
+dist/
+build/
+coverage/
+
+# Expo 관련
+.expo/
+web-build/
+
+# 플랫폼별 빌드 디렉토리
+android/
+ios/
+
+# 패키지 관리 파일들
+package-lock.json
+yarn.lock
+
+# 로그 파일
+*.log
+
+# 환경 변수 파일
+.env*
+
+# IDE 설정
+.vscode/
+.idea/
+
+# 기타
+.DS_Store
+Thumbs.db
+
+# 바이너리 파일
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.svg
+*.ico
+*.woff
+*.woff2
+*.ttf
+*.eot 

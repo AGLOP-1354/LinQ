@@ -18,7 +18,7 @@ export default function WelcomeScreen() {
           당신의 일상 패턴을 학습하여 개인화된 일정 제안을 제공하는 AI 비서입니다.
         </Text>
       </View>
-      
+
       <TouchableOpacity style={styles.button} onPress={handleGetStarted}>
         <Text style={styles.buttonText}>시작하기</Text>
       </TouchableOpacity>
@@ -71,4 +71,4 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
   },
-}); 
+});

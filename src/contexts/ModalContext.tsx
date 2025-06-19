@@ -33,8 +33,6 @@ export const ModalProvider: React.FC<ModalProviderProps> = ({ children }) => {
     console.log('AI 일정 등록');
   };
 
-
-
   const handleVoiceInput = () => {
     // TODO: 음성 입력 모달 표시
     console.log('음성 입력');
@@ -53,4 +51,4 @@ export const ModalProvider: React.FC<ModalProviderProps> = ({ children }) => {
       {children}
     </ModalContext.Provider>
   );
-}; 
+};

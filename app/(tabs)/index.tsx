@@ -1,127 +1,207 @@
-import React, { useState, useEffect } from 'react';
-import {
-  View,
-  Text,
-  ScrollView,
-  StyleSheet,
-  TouchableOpacity,
-  SafeAreaView,
-  FlatList
-} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Haptics from 'expo-haptics';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  Animated,
+  Dimensions,
+  Modal,
+  Pressable,
+  SafeAreaView,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import AddEventModal from '../../src/components/forms/AddEventModal';
 import { useModal } from '../../src/contexts/ModalContext';
-import { Colors, Spacing, BorderRadius, Shadows, Typography } from '../../src/constants/design';
+import { useTheme } from '../../src/contexts/ThemeContext';
+
+const { width, height } = Dimensions.get('window');
+const CALENDAR_PADDING = 16; // 캘린더 좌우 패딩
+const CELL_SIZE = (width - CALENDAR_PADDING * 2) / 7; // 좌우 패딩을 제외한 폭 사용
+const CELL_HEIGHT = (height - 200) / 5; // 가용 영역을 5주로 나누어 동일한 높이
 
 type ViewType = 'list' | 'calendar';
 
 interface Event {
   id: string;
   title: string;
-  time: string;
+  startDate: Date;
+  endDate: Date;
+  isAllDay: boolean;
+  color: string;
   location?: string;
-  priority: 'HIGH' | 'MEDIUM' | 'LOW';
-  date: string; // YYYY-MM-DD 형식
+  notifications: string[];
+  category: 'work' | 'health' | 'social' | 'personal';
+  isCompleted?: boolean; // 완료 상태 추가
+  // 호환성을 위한 추가 필드들
+  time?: string; // 기존 샘플 데이터 호환용
+  date?: string; // 기존 샘플 데이터 호환용
+  priority?: 'HIGH' | 'MEDIUM' | 'LOW'; // 기존 샘플 데이터 호환용
 }
 
-// 샘플 일정 데이터
 const sampleEvents: Event[] = [
   {
     id: '1',
-    title: '팀 회의',
-    time: '09:00',
+    title: '팀 스탠드업',
+    startDate: new Date(new Date().setHours(9, 0, 0, 0)),
+    endDate: new Date(new Date().setHours(9, 30, 0, 0)),
+    isAllDay: false,
+    color: '#3B82F6',
     location: '회의실 A',
+    notifications: ['15_min'],
+    category: 'work',
+    isCompleted: true, // 과거 일정은 완료로 설정
+    time: '09:00',
+    date: new Date().toISOString().split('T')[0],
     priority: 'HIGH',
-    date: new Date().toISOString().split('T')[0] // 오늘
   },
   {
     id: '2',
     title: '프로젝트 리뷰',
-    time: '14:00',
+    startDate: new Date(new Date().setHours(14, 0, 0, 0)),
+    endDate: new Date(new Date().setHours(15, 0, 0, 0)),
+    isAllDay: false,
+    color: '#3B82F6',
     location: '온라인',
-    priority: 'MEDIUM',
-    date: new Date().toISOString().split('T')[0] // 오늘
+    notifications: ['1_hour'],
+    category: 'work',
+    isCompleted: false, // 오늘 예정 일정
+    time: '14:00',
+    date: new Date().toISOString().split('T')[0],
+    priority: 'HIGH',
   },
   {
     id: '3',
-    title: '운동',
-    time: '18:00',
-    location: '헬스장',
-    priority: 'LOW',
-    date: new Date().toISOString().split('T')[0] // 오늘
+    title: '점심 약속',
+    startDate: new Date(new Date().setHours(12, 30, 0, 0)),
+    endDate: new Date(new Date().setHours(13, 30, 0, 0)),
+    isAllDay: false,
+    color: '#F59E0B',
+    location: '강남역',
+    notifications: ['15_min'],
+    category: 'social',
+    isCompleted: true, // 점심은 보통 완료됨
+    time: '12:30',
+    date: new Date().toISOString().split('T')[0],
+    priority: 'MEDIUM',
   },
   {
     id: '4',
-    title: '의사 약속',
-    time: '10:30',
-    location: '병원',
-    priority: 'HIGH',
-    date: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0] // 내일
+    title: '요가 클래스',
+    startDate: new Date(new Date().setHours(18, 0, 0, 0)),
+    endDate: new Date(new Date().setHours(19, 0, 0, 0)),
+    isAllDay: false,
+    color: '#10B981',
+    location: '피트니스',
+    notifications: ['30_min'],
+    category: 'health',
+    isCompleted: false, // 오늘 저녁 예정
+    time: '18:00',
+    date: new Date().toISOString().split('T')[0],
+    priority: 'LOW',
   },
   {
     id: '5',
-    title: '친구 만남',
-    time: '19:00',
-    location: '카페',
+    title: '치과 검진',
+    startDate: new Date(new Date(Date.now() + 24 * 60 * 60 * 1000).setHours(10, 30, 0, 0)),
+    endDate: new Date(new Date(Date.now() + 24 * 60 * 60 * 1000).setHours(11, 0, 0, 0)),
+    isAllDay: false,
+    color: '#10B981',
+    location: '강남 치과',
+    notifications: ['1_hour'],
+    category: 'health',
+    isCompleted: false, // 내일 예정
+    time: '10:30',
+    date: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    priority: 'HIGH',
+  },
+  {
+    id: '6',
+    title: '친구들과 브런치',
+    startDate: new Date(new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).setHours(11, 0, 0, 0)),
+    endDate: new Date(new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).setHours(12, 30, 0, 0)),
+    isAllDay: false,
+    color: '#F59E0B',
+    location: '카페 더블유',
+    notifications: ['15_min'],
+    category: 'social',
+    isCompleted: false, // 미래 예정
+    time: '11:00',
+    date: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    priority: 'LOW',
+  },
+  {
+    id: '7',
+    title: '독서 모임',
+    startDate: new Date(new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).setHours(19, 30, 0, 0)),
+    endDate: new Date(new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).setHours(21, 0, 0, 0)),
+    isAllDay: false,
+    color: '#8B5CF6',
+    location: '북카페',
+    notifications: ['15_min'],
+    category: 'personal',
+    isCompleted: false, // 미래 예정
+    time: '19:30',
+    date: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
     priority: 'MEDIUM',
-    date: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] // 모레
-  }
+  },
+  {
+    id: '8',
+    title: '헬스장',
+    startDate: new Date(new Date(Date.now() + 1 * 24 * 60 * 60 * 1000).setHours(7, 0, 0, 0)),
+    endDate: new Date(new Date(Date.now() + 1 * 24 * 60 * 60 * 1000).setHours(8, 0, 0, 0)),
+    isAllDay: false,
+    color: '#10B981',
+    location: '24시 헬스장',
+    notifications: ['15_min'],
+    category: 'health',
+    isCompleted: false, // 내일 예정
+    time: '07:00',
+    date: new Date(Date.now() + 1 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    priority: 'MEDIUM',
+  },
 ];
 
-export default function HomeScreen() {
-  const [viewType, setViewType] = useState<ViewType>('list');
-  const [allEvents, setAllEvents] = useState<Event[]>(sampleEvents);
-  const [currentDate, setCurrentDate] = useState(new Date());
-  const { isAddEventModalVisible, hideAddEventModal } = useModal();
+type FilterType = 'all' | 'completed' | 'upcoming';
 
-  // viewType을 AsyncStorage에서 불러오기
+export default function HomeScreen() {
+  const [currentDate, setCurrentDate] = useState(new Date());
+  const [allEvents, setAllEvents] = useState<Event[]>(sampleEvents);
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [drawerVisible, setDrawerVisible] = useState(false);
+  const [selectedDayEvents, setSelectedDayEvents] = useState<Event[]>([]);
+  const [viewType, setViewType] = useState<ViewType>('calendar');
+  const [filterType, setFilterType] = useState<FilterType>('all');
+  const { isAddEventModalVisible, hideAddEventModal, showAddEventModal } = useModal();
+  const { theme } = useTheme();
+
+  const slideAnim = useRef(new Animated.Value(height)).current;
+  const overlayAnim = useRef(new Animated.Value(0)).current;
+  const scrollX = useRef(new Animated.Value(0)).current;
+
+  // 컴포넌트 언마운트 시 애니메이션 정리
   useEffect(() => {
-    loadViewType();
+    return () => {
+      slideAnim.stopAnimation();
+      overlayAnim.stopAnimation();
+      scrollX.stopAnimation();
+    };
+  }, [slideAnim, overlayAnim, scrollX]);
+
+  const getCategoryColor = useCallback((category: string) => {
+    const colors = {
+      work: '#3B82F6',
+      health: '#10B981',
+      social: '#F59E0B',
+      personal: '#8B5CF6',
+    };
+    return colors[category as keyof typeof colors] || '#6B7280';
   }, []);
 
-  const loadViewType = async () => {
-    try {
-      const savedViewType = await AsyncStorage.getItem('home_view_type');
-      if (savedViewType) {
-        setViewType(savedViewType as ViewType);
-      }
-    } catch (error) {
-      console.log('ViewType 로드 실패:', error);
-    }
-  };
-
-  // viewType 변경 및 저장
-  const changeViewType = async (newViewType: ViewType) => {
-    try {
-      setViewType(newViewType);
-      await AsyncStorage.setItem('home_view_type', newViewType);
-    } catch (error) {
-      console.log('ViewType 저장 실패:', error);
-    }
-  };
-
-  // 오늘 일정만 필터링
-  const getTodayEvents = () => {
-    const today = new Date().toISOString().split('T')[0];
-    return allEvents.filter(event => event.date === today);
-  };
-
-  // 특정 날짜의 일정 가져오기
-  const getEventsForDate = (date: string) => {
-    return allEvents.filter(event => event.date === date);
-  };
-
-  // 새 일정 추가
-  const handleAddEvent = (newEvent: Omit<Event, 'id'>) => {
-    const eventWithId = {
-      ...newEvent,
-      id: Date.now().toString(), // 임시 ID 생성
-    };
-    setAllEvents(prev => [...prev, eventWithId]);
-  };
-
-  const getPriorityColor = (priority: string) => {
+  const getPriorityColor = useCallback((priority: string) => {
     switch (priority) {
       case 'HIGH':
         return '#EF4444';
@@ -132,272 +212,1167 @@ export default function HomeScreen() {
       default:
         return '#6B7280';
     }
-  };
+  }, []);
 
-  const getPriorityLabel = (priority: string) => {
-    switch (priority) {
-      case 'HIGH':
-        return '상';
-      case 'MEDIUM':
-        return '중';
-      case 'LOW':
-        return '하';
+  const getCategoryLabel = useCallback((category: string) => {
+    switch (category) {
+      case 'work':
+        return '업무';
+      case 'health':
+        return '건강';
+      case 'social':
+        return '사교';
+      case 'personal':
+        return '개인';
       default:
-        return '';
+        return '기타';
     }
-  };
+  }, []);
 
-  const formatDate = () => {
-    const today = new Date();
-    const options: Intl.DateTimeFormatOptions = {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      weekday: 'long',
-    };
-    return today.toLocaleDateString('ko-KR', options);
-  };
-
-  const renderEventCard = ({ item }: { item: Event }) => (
-    <View style={styles.eventCard}>
-      <View style={styles.eventHeader}>
-        <View style={styles.eventTime}>
-          <Ionicons name="time-outline" size={16} color="#6B7280" />
-          <Text style={styles.timeText}>{item.time}</Text>
-        </View>
-        <View style={[styles.priorityBadge, { backgroundColor: getPriorityColor(item.priority) }]}>
-          <Text style={styles.priorityText}>{getPriorityLabel(item.priority)}</Text>
-        </View>
-      </View>
-      <Text style={styles.eventTitle}>{item.title}</Text>
-      {item.location && (
-        <View style={styles.locationRow}>
-          <Ionicons name="location-outline" size={14} color="#6B7280" />
-          <Text style={styles.locationText}>{item.location}</Text>
-        </View>
-      )}
-    </View>
+  const getEventsForDate = useCallback(
+    (date: string) => {
+      return allEvents.filter(event => {
+        // 새로운 구조에서는 startDate를 사용하고, 호환성을 위해 date 필드도 확인
+        if (event.date) {
+          return event.date === date;
+        }
+        // startDate로부터 날짜 문자열 생성
+        const eventDateString = event.startDate.toISOString().split('T')[0];
+        return eventDateString === date;
+      });
+    },
+    [allEvents]
   );
 
-  // 월별 캘린더 뷰 렌더링
-  const renderCalendarView = () => {
+  const getTodayEvents = useCallback(() => {
+    const todayStr = new Date().toISOString().split('T')[0];
+    return getEventsForDate(todayStr);
+  }, [getEventsForDate]);
+
+  const getFilteredEvents = useCallback(
+    (events: Event[]) => {
+      switch (filterType) {
+        case 'completed':
+          return events.filter(event => event.isCompleted);
+        case 'upcoming':
+          return events.filter(event => !event.isCompleted);
+        default:
+          return events;
+      }
+    },
+    [filterType]
+  );
+
+  const getEventStats = useCallback(() => {
+    const todayEvents = getTodayEvents();
+    const total = todayEvents.length;
+    const completed = todayEvents.filter(event => event.isCompleted).length;
+    const upcoming = total - completed;
+    const completionRate = total > 0 ? Math.round((completed / total) * 100) : 0;
+
+    return { total, completed, upcoming, completionRate };
+  }, [getTodayEvents]);
+
+  const openDrawer = useCallback(
+    (dateString: string, events: Event[]) => {
+      setSelectedDate(dateString);
+      setSelectedDayEvents(events);
+      setDrawerVisible(true);
+
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+      Animated.parallel([
+        Animated.spring(slideAnim, {
+          toValue: 0,
+          useNativeDriver: true,
+          tension: 100,
+          friction: 8,
+        }),
+        Animated.timing(overlayAnim, {
+          toValue: 1,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    },
+    [slideAnim, overlayAnim]
+  );
+
+  const closeDrawer = useCallback(() => {
+    Animated.parallel([
+      Animated.spring(slideAnim, {
+        toValue: height,
+        useNativeDriver: true,
+        tension: 100,
+        friction: 8,
+      }),
+      Animated.timing(overlayAnim, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      setDrawerVisible(false);
+      setSelectedDate(null);
+      setSelectedDayEvents([]);
+    });
+
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  }, [slideAnim, overlayAnim]);
+
+  const handleAddEvent = useCallback((newEvent: Omit<Event, 'id'>) => {
+    const eventWithId = {
+      ...newEvent,
+      id: Date.now().toString(),
+      // 호환성을 위한 추가 필드들
+      time: newEvent.startDate.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }),
+      date: newEvent.startDate.toISOString().split('T')[0],
+      priority: 'MEDIUM' as const,
+      isCompleted: false, // 완료 상태 추가
+    };
+    setAllEvents(prev => [...prev, eventWithId]);
+
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  }, []);
+
+  const toggleEventCompletion = useCallback((eventId: string) => {
+    setAllEvents(prev =>
+      prev.map(event =>
+        event.id === eventId ? { ...event, isCompleted: !event.isCompleted } : event
+      )
+    );
+
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+  }, []);
+
+  // 한국식 요일 (일요일 시작)
+  const dayNames = ['일', '월', '화', '수', '목', '금', '토'];
+
+  // 현재 달의 캘린더 데이터 생성 (5주만)
+  const renderCalendar = useMemo(() => {
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth();
-    
-    // 월의 첫째 날과 마지막 날
+
     const firstDay = new Date(year, month, 1);
     const lastDay = new Date(year, month + 1, 0);
-    
-    // 첫 주의 시작 (일요일부터)
     const startDate = new Date(firstDay);
     startDate.setDate(startDate.getDate() - firstDay.getDay());
-    
-    // 마지막 주의 끝 (토요일까지)
-    const endDate = new Date(lastDay);
-    endDate.setDate(endDate.getDate() + (6 - lastDay.getDay()));
-    
+
     const weeks = [];
     const currentWeekDate = new Date(startDate);
-    
-    while (currentWeekDate <= endDate) {
-      const week = [];
-      for (let i = 0; i < 7; i++) {
+
+    // 5주간의 달력 생성
+    for (let week = 0; week < 5; week++) {
+      const weekDays = [];
+      for (let day = 0; day < 7; day++) {
         const date = new Date(currentWeekDate);
         const dateString = date.toISOString().split('T')[0];
         const dayEvents = getEventsForDate(dateString);
         const isCurrentMonth = date.getMonth() === month;
         const isToday = dateString === new Date().toISOString().split('T')[0];
-        
-        week.push({
+
+        weekDays.push({
           date: date,
           dateString: dateString,
           events: dayEvents,
           isCurrentMonth: isCurrentMonth,
-          isToday: isToday
+          isToday: isToday,
         });
-        
+
         currentWeekDate.setDate(currentWeekDate.getDate() + 1);
       }
-      weeks.push(week);
+      weeks.push(weekDays);
     }
 
-    const monthNames = [
-      '1월', '2월', '3월', '4월', '5월', '6월',
-      '7월', '8월', '9월', '10월', '11월', '12월'
-    ];
-
-    const dayNames = ['일', '월', '화', '수', '목', '금', '토'];
-
-    return (
-      <ScrollView style={styles.calendarScrollView} showsVerticalScrollIndicator={false}>
-        <View style={styles.calendarContainer}>
-          {/* 월 네비게이션 */}
-          <View style={styles.monthNavigation}>
-            <TouchableOpacity 
-              style={styles.navButton}
-              onPress={() => setCurrentDate(new Date(year, month - 1, 1))}
-            >
-              <Ionicons name="chevron-back" size={24} color="#6B7280" />
-            </TouchableOpacity>
-            
-            <Text style={styles.monthTitle}>
-              {year}년 {monthNames[month]}
-            </Text>
-            
-            <TouchableOpacity 
-              style={styles.navButton}
-              onPress={() => setCurrentDate(new Date(year, month + 1, 1))}
-            >
-              <Ionicons name="chevron-forward" size={24} color="#6B7280" />
-            </TouchableOpacity>
-          </View>
-
-          {/* 요일 헤더 */}
-          <View style={styles.weekHeader}>
-            {dayNames.map((day, index) => (
-              <Text 
-                key={index} 
-                style={[
-                  styles.dayHeaderText,
-                  index === 0 && styles.sundayHeader,
-                  index === 6 && styles.saturdayHeader
-                ]}
-              >
-                {day}
-              </Text>
-            ))}
-          </View>
-
-          {/* 캘린더 그리드 */}
-          <View style={styles.calendarGrid}>
-            {weeks.map((week, weekIndex) => (
-              <View key={weekIndex} style={styles.weekRow}>
-                {week.map((day, dayIndex) => (
-                  <View 
-                    key={dayIndex} 
+    return weeks.map((week, weekIndex) => (
+      <View key={weekIndex} style={styles.weekRow}>
+        {week.map((day, dayIndex) => (
+          <Pressable
+            key={dayIndex}
+            style={[
+              styles.dayCell,
+              { backgroundColor: theme.colors.background.primary },
+              !day.isCurrentMonth && styles.otherMonthCell,
+            ]}
+            onPress={() => {
+              openDrawer(day.dateString, day.events);
+            }}
+            android_ripple={{
+              color: theme.colors.primary[100],
+              borderless: false,
+            }}
+          >
+            {/* 날짜 숫자 */}
+            <View style={styles.dayHeader}>
+              <View style={styles.dayNumberContainer}>
+                <View
+                  style={[
+                    styles.dayNumberBackground,
+                    day.isToday && {
+                      backgroundColor: theme.colors.primary[500],
+                      transform: [{ scale: 1.05 }],
+                    },
+                  ]}
+                >
+                  <Text
                     style={[
-                      styles.dayCell,
-                      day.isToday && styles.todayCell,
-                      !day.isCurrentMonth && styles.otherMonthCell
+                      styles.dayNumber,
+                      { color: theme.colors.text.primary },
+                      !day.isCurrentMonth && {
+                        color: theme.colors.text.tertiary,
+                        opacity: 0.4,
+                      },
+                      day.isToday && {
+                        color: '#FFFFFF',
+                        fontWeight: '900',
+                      },
+                      dayIndex === 0 && day.isCurrentMonth && !day.isToday && { color: '#EF4444' },
+                      dayIndex === 6 &&
+                        day.isCurrentMonth &&
+                        !day.isToday && { color: theme.colors.primary[600] },
                     ]}
                   >
-                    {/* 날짜 숫자 */}
-                    <View style={styles.dayHeader}>
-                      <Text 
+                    {day.date.getDate()}
+                  </Text>
+                </View>
+                {day.isToday && (
+                  <View style={[styles.todayDot, { backgroundColor: theme.colors.primary[500] }]} />
+                )}
+              </View>
+            </View>
+
+            {/* 이벤트 미니 카드들 (동적 개수) */}
+            <View style={styles.eventsContainer}>
+              {(() => {
+                const availableHeight = CELL_HEIGHT - 18 - 3 - 6; // 총 높이 - 헤더 - 패딩 - 여백
+                const cardHeight = 16; // 카드 높이 + 마진
+                const maxEvents = Math.floor(availableHeight / cardHeight);
+                const visibleEvents = Math.max(
+                  1,
+                  maxEvents - (day.events.length > maxEvents ? 1 : 0)
+                );
+
+                return (
+                  <>
+                    {day.events.slice(0, visibleEvents).map((event, eventIndex) => (
+                      <View
+                        key={event.id}
                         style={[
-                          styles.dayText,
-                          !day.isCurrentMonth && styles.otherMonthText,
-                          day.isToday && styles.todayText,
-                          dayIndex === 0 && day.isCurrentMonth && styles.sundayText,
-                          dayIndex === 6 && day.isCurrentMonth && styles.saturdayText
+                          styles.miniEventCard,
+                          { backgroundColor: getCategoryColor(event.category) },
                         ]}
                       >
-                        {day.date.getDate()}
-                      </Text>
-                    </View>
-                    
-                    {/* 일정 리스트 */}
-                    <View style={styles.eventsList}>
-                      {day.events.slice(0, 4).map((event, eventIndex) => (
-                        <TouchableOpacity
-                          key={eventIndex}
-                          style={[
-                            styles.eventItem,
-                            { backgroundColor: getPriorityColor(event.priority) }
-                          ]}
-                          activeOpacity={0.7}
+                        <Text style={styles.miniEventTitle} numberOfLines={1}>
+                          {event.title}
+                        </Text>
+                      </View>
+                    ))}
+
+                    {day.events.length > visibleEvents && (
+                      <View
+                        style={[
+                          styles.moreEventsIndicator,
+                          { backgroundColor: theme.colors.surface },
+                        ]}
+                      >
+                        <Text
+                          style={[styles.moreEventsText, { color: theme.colors.text.secondary }]}
                         >
-                          <Text style={styles.eventItemTime} numberOfLines={1}>
-                            {event.time}
-                          </Text>
-                          <Text style={styles.eventItemTitle} numberOfLines={1}>
+                          외 {day.events.length - visibleEvents}개
+                        </Text>
+                      </View>
+                    )}
+                  </>
+                );
+              })()}
+            </View>
+          </Pressable>
+        ))}
+      </View>
+    ));
+  }, [currentDate, allEvents, theme, getCategoryColor, getEventsForDate, openDrawer]);
+
+  const formatSelectedDate = useMemo(() => {
+    if (!selectedDate) return '';
+    try {
+      const date = new Date(selectedDate);
+      if (isNaN(date.getTime())) return selectedDate;
+      return `${date.getFullYear()}년 ${date.getMonth() + 1}월 ${date.getDate()}일`;
+    } catch (error) {
+      return selectedDate;
+    }
+  }, [selectedDate]);
+
+  // 월 데이터 생성 (현재 월 기준 ±3개월)
+  const generateMonthsData = useCallback(() => {
+    const months = [];
+    const currentYear = currentDate.getFullYear();
+    const currentMonth = currentDate.getMonth();
+
+    for (let i = -3; i <= 3; i++) {
+      const date = new Date(currentYear, currentMonth + i, 1);
+      months.push({
+        date,
+        key: `${date.getFullYear()}-${date.getMonth()}`,
+        year: date.getFullYear(),
+        month: date.getMonth(),
+      });
+    }
+
+    return months;
+  }, [currentDate]);
+
+  const monthsData = generateMonthsData();
+  const currentMonthIndex = 3; // 현재 월의 인덱스
+
+  const onMomentumScrollEnd = useCallback(
+    (event: any) => {
+      const offsetX = event.nativeEvent.contentOffset.x;
+      const index = Math.round(offsetX / width);
+      const newMonth = monthsData[index];
+
+      if (newMonth && index !== currentMonthIndex) {
+        setCurrentDate(newMonth.date);
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      }
+    },
+    [monthsData, currentMonthIndex]
+  );
+
+  const renderMonth = useCallback(
+    (monthData: any) => {
+      const year = monthData.date.getFullYear();
+      const month = monthData.date.getMonth();
+
+      const firstDay = new Date(year, month, 1);
+      const startDate = new Date(firstDay);
+      startDate.setDate(startDate.getDate() - firstDay.getDay());
+
+      const weeks = [];
+      const currentWeekDate = new Date(startDate);
+
+      // 5주간의 달력 생성
+      for (let week = 0; week < 5; week++) {
+        const weekDays = [];
+        for (let day = 0; day < 7; day++) {
+          const date = new Date(currentWeekDate);
+          const dateString = date.toISOString().split('T')[0];
+          const dayEvents = getEventsForDate(dateString);
+          const isCurrentMonth = date.getMonth() === month;
+          const isToday = dateString === new Date().toISOString().split('T')[0];
+
+          weekDays.push({
+            date: date,
+            dateString: dateString,
+            events: dayEvents,
+            isCurrentMonth: isCurrentMonth,
+            isToday: isToday,
+          });
+
+          currentWeekDate.setDate(currentWeekDate.getDate() + 1);
+        }
+        weeks.push(weekDays);
+      }
+
+      return weeks.map((week, weekIndex) => (
+        <View key={weekIndex} style={styles.weekRow}>
+          {week.map((day, dayIndex) => (
+            <Pressable
+              key={dayIndex}
+              style={[
+                styles.dayCell,
+                { backgroundColor: theme.colors.background.primary },
+                !day.isCurrentMonth && styles.otherMonthCell,
+              ]}
+              onPress={() => {
+                openDrawer(day.dateString, day.events);
+              }}
+              android_ripple={{
+                color: theme.colors.primary[100],
+                borderless: false,
+              }}
+            >
+              {/* 날짜 숫자 */}
+              <View style={styles.dayHeader}>
+                <View style={styles.dayNumberContainer}>
+                  <View
+                    style={[
+                      styles.dayNumberBackground,
+                      day.isToday && {
+                        backgroundColor: theme.colors.primary[500],
+                        transform: [{ scale: 1.05 }],
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.dayNumber,
+                        { color: theme.colors.text.primary },
+                        !day.isCurrentMonth && {
+                          color: theme.colors.text.tertiary,
+                          opacity: 0.4,
+                        },
+                        day.isToday && {
+                          color: '#FFFFFF',
+                          fontWeight: '900',
+                        },
+                        dayIndex === 0 &&
+                          day.isCurrentMonth &&
+                          !day.isToday && { color: '#EF4444' },
+                        dayIndex === 6 &&
+                          day.isCurrentMonth &&
+                          !day.isToday && { color: theme.colors.primary[600] },
+                      ]}
+                    >
+                      {day.date.getDate()}
+                    </Text>
+                  </View>
+                  {day.isToday && (
+                    <View
+                      style={[styles.todayDot, { backgroundColor: theme.colors.primary[500] }]}
+                    />
+                  )}
+                </View>
+              </View>
+
+              {/* 이벤트 미니 카드들 (동적 개수) */}
+              <View style={styles.eventsContainer}>
+                {(() => {
+                  const availableHeight = CELL_HEIGHT - 18 - 3 - 6; // 총 높이 - 헤더 - 패딩 - 여백
+                  const cardHeight = 16; // 카드 높이 + 마진
+                  const maxEvents = Math.floor(availableHeight / cardHeight);
+                  const visibleEvents = Math.max(
+                    1,
+                    maxEvents - (day.events.length > maxEvents ? 1 : 0)
+                  );
+
+                  return (
+                    <>
+                      {day.events.slice(0, visibleEvents).map((event, eventIndex) => (
+                        <View
+                          key={event.id}
+                          style={[
+                            styles.miniEventCard,
+                            { backgroundColor: getCategoryColor(event.category) },
+                          ]}
+                        >
+                          <Text style={styles.miniEventTitle} numberOfLines={1}>
                             {event.title}
                           </Text>
-                        </TouchableOpacity>
+                        </View>
                       ))}
-                      
-                      {/* 추가 일정이 있을 경우 더보기 표시 */}
-                      {day.events.length > 4 && (
-                        <TouchableOpacity style={styles.moreEventsButton}>
-                          <Text style={styles.moreEventsText}>
-                            +{day.events.length - 4}개 더보기
+
+                      {day.events.length > visibleEvents && (
+                        <View
+                          style={[
+                            styles.moreEventsIndicator,
+                            { backgroundColor: theme.colors.surface },
+                          ]}
+                        >
+                          <Text
+                            style={[styles.moreEventsText, { color: theme.colors.text.secondary }]}
+                          >
+                            외 {day.events.length - visibleEvents}개
                           </Text>
-                        </TouchableOpacity>
+                        </View>
                       )}
-                    </View>
-                  </View>
-                ))}
+                    </>
+                  );
+                })()}
+              </View>
+            </Pressable>
+          ))}
+        </View>
+      ));
+    },
+    [theme, getCategoryColor, getEventsForDate, openDrawer]
+  );
+
+  return (
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background.primary }]}>
+      <StatusBar
+        barStyle={theme.isDark ? 'light-content' : 'dark-content'}
+        backgroundColor={theme.colors.background.primary}
+        translucent={false}
+      />
+
+      {/* 페이지 헤더 */}
+      <View
+        style={[
+          styles.pageHeader,
+          {
+            backgroundColor: theme.colors.background.primary,
+            borderBottomColor: theme.colors.border,
+          },
+        ]}
+      >
+        <View style={styles.headerTop}>
+          <View style={styles.headerLeft}>
+            <Text style={[styles.greeting, { color: theme.colors.primary[600] }]}>LinQ</Text>
+            <Text style={[styles.dateSubtext, { color: theme.colors.text.secondary }]}>
+              스마트 일정 관리
+            </Text>
+          </View>
+
+          <View style={styles.headerCenter}>
+            <Text style={[styles.todayDate, { color: theme.colors.text.primary }]}>
+              {new Date().toLocaleDateString('ko-KR', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+                weekday: 'short',
+              })}
+            </Text>
+          </View>
+
+          {/* 뷰 타입 토글 */}
+          <View style={[styles.viewToggle, { backgroundColor: theme.colors.surface }]}>
+            <TouchableOpacity
+              style={[
+                styles.toggleButton,
+                viewType === 'list' && [
+                  styles.activeToggle,
+                  { backgroundColor: theme.colors.primary[500] },
+                ],
+              ]}
+              onPress={() => {
+                setViewType('list');
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              }}
+            >
+              <Ionicons
+                name='list'
+                size={16}
+                color={viewType === 'list' ? '#FFFFFF' : theme.colors.text.secondary}
+              />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.toggleButton,
+                viewType === 'calendar' && [
+                  styles.activeToggle,
+                  { backgroundColor: theme.colors.primary[500] },
+                ],
+              ]}
+              onPress={() => {
+                setViewType('calendar');
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              }}
+            >
+              <Ionicons
+                name='calendar'
+                size={16}
+                color={viewType === 'calendar' ? '#FFFFFF' : theme.colors.text.secondary}
+              />
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+
+      {/* 컨텐츠 영역 */}
+      {viewType === 'calendar' ? (
+        <View style={styles.calendarWrapper}>
+          {/* 요일 헤더 */}
+          <View style={[styles.weekHeader, { backgroundColor: theme.colors.background.primary }]}>
+            {['일', '월', '화', '수', '목', '금', '토'].map((day, index) => (
+              <View key={day} style={styles.weekHeaderDay}>
+                <Text
+                  style={[
+                    styles.weekHeaderText,
+                    { color: theme.colors.text.secondary },
+                    index === 0 && { color: '#EF4444' }, // 일요일
+                    index === 6 && { color: theme.colors.primary[600] }, // 토요일
+                  ]}
+                >
+                  {day}
+                </Text>
               </View>
             ))}
           </View>
-        </View>
-      </ScrollView>
-    );
-  };
 
-  const todayEvents = getTodayEvents();
-
-  return (
-    <SafeAreaView style={styles.container}>
-      {/* 헤더 */}
-      <View style={styles.header}>
-        <Text style={styles.greeting}>LinQ</Text>
-        
-        {/* ViewType 전환 버튼 */}
-        <View style={styles.viewToggle}>
-          <TouchableOpacity
-            style={[styles.toggleButton, viewType === 'list' && styles.activeToggle]}
-            onPress={() => changeViewType('list')}
+          <ScrollView
+            style={styles.calendarContainer}
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            snapToInterval={width}
+            decelerationRate='fast'
+            contentOffset={{ x: width * currentMonthIndex, y: 0 }}
+            onMomentumScrollEnd={onMomentumScrollEnd}
           >
-            <Ionicons 
-              name="list" 
-              size={16} 
-              color={viewType === 'list' ? '#ffffff' : '#6B7280'} 
-            />
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.toggleButton, viewType === 'calendar' && styles.activeToggle]}
-            onPress={() => changeViewType('calendar')}
-          >
-            <Ionicons 
-              name="calendar" 
-              size={16} 
-              color={viewType === 'calendar' ? '#ffffff' : '#6B7280'} 
-            />
-          </TouchableOpacity>
+            {monthsData.map((monthData, index) => (
+              <View key={monthData.key} style={[styles.monthContainer, { width }]}>
+                {renderMonth(monthData)}
+              </View>
+            ))}
+          </ScrollView>
         </View>
-      </View>
-
-      {/* 일정 표시 영역 */}
-      <View style={[styles.content, viewType === 'calendar' && styles.calendarContent]}>
-        {viewType === 'list' ? (
-          <>
-            <Text style={styles.sectionTitle}>
-              오늘의 일정 ({todayEvents.length}개)
-            </Text>
-            
-            {todayEvents.length > 0 ? (
-              <FlatList
-                data={todayEvents}
-                renderItem={renderEventCard}
-                keyExtractor={(item) => item.id}
-                showsVerticalScrollIndicator={false}
-                contentContainerStyle={styles.listContainer}
-              />
-            ) : (
-              <View style={styles.emptyState}>
-                <Ionicons name="calendar-outline" size={48} color="#D1D5DB" />
-                <Text style={styles.emptyStateText}>오늘은 예정된 일정이 없습니다</Text>
-                <Text style={styles.emptyStateSubtext}>
-                  새로운 일정을 추가하거나 AI에게 제안을 받아보세요
+      ) : (
+        <ScrollView style={styles.listContainer} showsVerticalScrollIndicator={false}>
+          <View style={styles.listContent}>
+            {/* 필터 섹션 */}
+            <View style={styles.filterSection}>
+              <View style={styles.filterHeader}>
+                <Text style={[styles.filterTitle, { color: theme.colors.text.primary }]}>
+                  오늘의 일정
                 </Text>
+                <View style={styles.statsContainer}>
+                  <Text style={[styles.statsText, { color: theme.colors.text.secondary }]}>
+                    {getEventStats().completed}/{getEventStats().total} 완료
+                    <Text style={[styles.statsRate, { color: theme.colors.primary[500] }]}>
+                      ({getEventStats().completionRate}%)
+                    </Text>
+                  </Text>
+                </View>
+              </View>
+
+              <View style={styles.filterTabs}>
+                {[
+                  { key: 'all', label: '전체', count: getEventStats().total },
+                  { key: 'upcoming', label: '예정', count: getEventStats().upcoming },
+                  { key: 'completed', label: '완료', count: getEventStats().completed },
+                ].map(tab => (
+                  <TouchableOpacity
+                    key={tab.key}
+                    style={[
+                      styles.filterTab,
+                      {
+                        backgroundColor:
+                          filterType === tab.key
+                            ? theme.colors.primary[500]
+                            : theme.colors.background.secondary,
+                      },
+                    ]}
+                    onPress={() => {
+                      setFilterType(tab.key as FilterType);
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Text
+                      style={[
+                        styles.filterTabText,
+                        {
+                          color: filterType === tab.key ? '#FFFFFF' : theme.colors.text.secondary,
+                        },
+                      ]}
+                    >
+                      {tab.label}
+                    </Text>
+                    <View
+                      style={[
+                        styles.filterTabBadge,
+                        {
+                          backgroundColor:
+                            filterType === tab.key
+                              ? 'rgba(255, 255, 255, 0.2)'
+                              : theme.colors.primary[100],
+                        },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.filterTabBadgeText,
+                          {
+                            color: filterType === tab.key ? '#FFFFFF' : theme.colors.primary[600],
+                          },
+                        ]}
+                      >
+                        {tab.count}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            {/* 일정 리스트 */}
+            {getFilteredEvents(
+              allEvents
+                .filter(event => event.date === new Date().toISOString().split('T')[0])
+                .sort((a, b) => {
+                  // 1차: 완료 상태 기준 정렬 (미완료가 위로)
+                  if (a.isCompleted !== b.isCompleted) {
+                    return (a.isCompleted ? 1 : 0) - (b.isCompleted ? 1 : 0);
+                  }
+                  // 2차: 시간 기준 정렬
+                  return (a.time || '').localeCompare(b.time || '');
+                })
+            ).map((event, index) => {
+              const eventDateTime = new Date(`${event.date} ${event.time}`);
+              const now = new Date();
+              const isCompleted = event.isCompleted || false;
+              const isUpcoming = eventDateTime > now && !isCompleted;
+              const isInProgress =
+                Math.abs(eventDateTime.getTime() - now.getTime()) < 30 * 60 * 1000 && !isCompleted; // 30분 이내
+
+              return (
+                <TouchableOpacity
+                  key={event.id}
+                  style={[
+                    styles.enhancedEventCard,
+                    {
+                      backgroundColor: theme.colors.background.card,
+                      borderColor: theme.colors.border,
+                    },
+                    isCompleted && { opacity: 0.7 },
+                    isInProgress && {
+                      borderColor: theme.colors.primary[500],
+                      borderWidth: 2,
+                      shadowColor: theme.colors.primary[500],
+                      shadowOpacity: 0.2,
+                      shadowRadius: 8,
+                      elevation: 6,
+                    },
+                  ]}
+                  onPress={() => toggleEventCompletion(event.id)}
+                  activeOpacity={0.7}
+                >
+                  {/* 상태 인디케이터 */}
+                  <View
+                    style={[
+                      styles.statusIndicator,
+                      { backgroundColor: getCategoryColor(event.category) },
+                      isCompleted && { backgroundColor: theme.colors.success[500] },
+                      isInProgress && { backgroundColor: theme.colors.primary[500] },
+                    ]}
+                  />
+
+                  {/* 메인 컨텐츠 */}
+                  <View style={styles.eventMainContent}>
+                    {/* 헤더 라인 */}
+                    <View style={styles.eventHeaderLine}>
+                      <View style={styles.timeSection}>
+                        <Text
+                          style={[
+                            styles.enhancedEventTime,
+                            { color: theme.colors.text.primary },
+                            isCompleted && { color: theme.colors.text.tertiary },
+                          ]}
+                        >
+                          {event.time}
+                        </Text>
+                        <View
+                          style={[
+                            styles.categoryChip,
+                            { backgroundColor: `${getCategoryColor(event.category)}15` },
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.categoryText,
+                              { color: getCategoryColor(event.category) },
+                            ]}
+                          >
+                            {getCategoryLabel(event.category)}
+                          </Text>
+                        </View>
+                      </View>
+
+                      <View style={styles.statusSection}>
+                        {isCompleted && (
+                          <View
+                            style={[
+                              styles.statusIndicatorBadge,
+                              { backgroundColor: theme.colors.success },
+                            ]}
+                          >
+                            <Text style={styles.statusText}>완료</Text>
+                            <Ionicons name='checkmark-circle' size={10} color='#FFFFFF' />
+                          </View>
+                        )}
+                        {isInProgress && (
+                          <View
+                            style={[
+                              styles.statusIndicatorBadge,
+                              { backgroundColor: theme.colors.primary[500] },
+                            ]}
+                          >
+                            <Text style={styles.statusText}>진행중</Text>
+                            <Ionicons name='radio-button-on' size={10} color='#FFFFFF' />
+                          </View>
+                        )}
+                        {isUpcoming && !isCompleted && !isInProgress && (
+                          <View
+                            style={[
+                              styles.statusIndicatorBadge,
+                              { backgroundColor: theme.colors.warning },
+                            ]}
+                          >
+                            <Text style={styles.statusText}>예정</Text>
+                            <Ionicons name='time-outline' size={10} color='#FFFFFF' />
+                          </View>
+                        )}
+                        <View
+                          style={[
+                            styles.priorityBadge,
+                            { backgroundColor: getPriorityColor(event.priority || 'MEDIUM') },
+                          ]}
+                        >
+                          <Text style={styles.priorityText}>
+                            {event.priority === 'HIGH'
+                              ? '높음'
+                              : event.priority === 'MEDIUM'
+                                ? '보통'
+                                : '낮음'}
+                          </Text>
+                        </View>
+                      </View>
+                    </View>
+
+                    {/* 제목 */}
+                    <Text
+                      style={[
+                        styles.enhancedEventTitle,
+                        { color: theme.colors.text.primary },
+                        isCompleted && {
+                          textDecorationLine: 'line-through',
+                          color: theme.colors.text.tertiary,
+                        },
+                      ]}
+                    >
+                      {event.title}
+                    </Text>
+
+                    {/* 위치 정보 */}
+                    {event.location && (
+                      <View style={styles.enhancedLocationContainer}>
+                        <Ionicons
+                          name='location-outline'
+                          size={12}
+                          color={theme.colors.text.tertiary}
+                        />
+                        <Text
+                          style={[
+                            styles.enhancedLocationText,
+                            { color: theme.colors.text.secondary },
+                          ]}
+                        >
+                          {event.location}
+                        </Text>
+                      </View>
+                    )}
+
+                    {/* 빠른 액션 버튼들 */}
+                    <View style={styles.quickActions}>
+                      <TouchableOpacity
+                        style={[
+                          styles.quickActionBtn,
+                          { backgroundColor: theme.colors.primary[50] },
+                        ]}
+                        onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}
+                      >
+                        <Ionicons
+                          name='create-outline'
+                          size={14}
+                          color={theme.colors.primary[600]}
+                        />
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[styles.quickActionBtn, { backgroundColor: theme.colors.surface }]}
+                        onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}
+                      >
+                        <Ionicons
+                          name='notifications-outline'
+                          size={14}
+                          color={theme.colors.text.secondary}
+                        />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
+
+            {/* 빈 상태 */}
+            {(() => {
+              const todayEvents = allEvents.filter(
+                event => event.date === new Date().toISOString().split('T')[0]
+              );
+              const filteredEvents = getFilteredEvents(todayEvents);
+
+              if (todayEvents.length === 0) {
+                return (
+                  <View style={styles.emptyStateContainer}>
+                    <View style={styles.emptyStateIcon}>
+                      <Ionicons
+                        name='calendar-outline'
+                        size={64}
+                        color={theme.colors.text.tertiary}
+                      />
+                    </View>
+                    <Text style={[styles.emptyStateTitle, { color: theme.colors.text.primary }]}>
+                      오늘은 일정이 없어요
+                    </Text>
+                    <Text
+                      style={[styles.emptyStateSubtitle, { color: theme.colors.text.secondary }]}
+                    >
+                      새로운 일정을 추가하여 하루를 계획해보세요
+                    </Text>
+                    <TouchableOpacity
+                      style={[
+                        styles.emptyStateButton,
+                        { backgroundColor: theme.colors.primary[500] },
+                      ]}
+                      onPress={() => {
+                        showAddEventModal();
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                      }}
+                    >
+                      <Ionicons name='add' size={20} color='#FFFFFF' />
+                      <Text style={styles.emptyStateButtonText}>첫 일정 추가하기</Text>
+                    </TouchableOpacity>
+                  </View>
+                );
+              }
+
+              if (filteredEvents.length === 0) {
+                const emptyMessages = {
+                  completed: {
+                    title: '완료된 일정이 없어요',
+                    subtitle: '일정을 완료하면 여기에 표시됩니다',
+                    icon: 'checkmark-circle-outline',
+                  },
+                  upcoming: {
+                    title: '예정된 일정이 없어요',
+                    subtitle: '새로운 일정을 추가해보세요',
+                    icon: 'time-outline',
+                  },
+                };
+
+                const message = emptyMessages[filterType as keyof typeof emptyMessages];
+                if (message) {
+                  return (
+                    <View style={styles.emptyStateContainer}>
+                      <View style={styles.emptyStateIcon}>
+                        <Ionicons
+                          name={message.icon as any}
+                          size={64}
+                          color={theme.colors.text.tertiary}
+                        />
+                      </View>
+                      <Text style={[styles.emptyStateTitle, { color: theme.colors.text.primary }]}>
+                        {message.title}
+                      </Text>
+                      <Text
+                        style={[styles.emptyStateSubtitle, { color: theme.colors.text.secondary }]}
+                      >
+                        {message.subtitle}
+                      </Text>
+                    </View>
+                  );
+                }
+              }
+
+              return null;
+            })()}
+          </View>
+        </ScrollView>
+      )}
+
+      {/* 모던 드로어 모달 */}
+      <Modal
+        visible={drawerVisible}
+        transparent
+        animationType='none'
+        statusBarTranslucent
+        onRequestClose={closeDrawer}
+      >
+        {/* 오버레이 */}
+        <Animated.View
+          style={[
+            styles.overlay,
+            {
+              opacity: overlayAnim,
+              backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            },
+          ]}
+        >
+          <Pressable style={StyleSheet.absoluteFill} onPress={closeDrawer} />
+        </Animated.View>
+
+        {/* 드로어 컨텐츠 */}
+        <Animated.View
+          style={[
+            styles.drawer,
+            {
+              backgroundColor: theme.colors.background.card,
+              transform: [{ translateY: slideAnim }],
+            },
+          ]}
+        >
+          {/* 드래그 핸들 */}
+          <View style={styles.dragHandle}>
+            <View style={[styles.handleBar, { backgroundColor: theme.colors.border }]} />
+          </View>
+
+          {/* 드로어 헤더 */}
+          <View style={styles.drawerHeader}>
+            <View>
+              <Text style={[styles.drawerTitle, { color: theme.colors.text.primary }]}>
+                {formatSelectedDate}
+              </Text>
+              <Text style={[styles.drawerSubtitle, { color: theme.colors.text.secondary }]}>
+                {selectedDayEvents.length}개의 일정
+              </Text>
+            </View>
+
+            <TouchableOpacity
+              style={[styles.closeButton, { backgroundColor: theme.colors.surface }]}
+              onPress={closeDrawer}
+            >
+              <Ionicons name='close' size={20} color={theme.colors.text.secondary} />
+            </TouchableOpacity>
+          </View>
+
+          {/* 이벤트 리스트 */}
+          <ScrollView style={styles.eventsListContainer} showsVerticalScrollIndicator={false}>
+            {selectedDayEvents.map((event, index) => {
+              const eventDateTime = new Date(`${event.date} ${event.time}`);
+              const now = new Date();
+              const isCompleted = event.isCompleted || false;
+              const isUpcoming = eventDateTime > now && !isCompleted;
+              const isInProgress =
+                Math.abs(eventDateTime.getTime() - now.getTime()) < 30 * 60 * 1000 && !isCompleted; // 30분 이내
+
+              return (
+                <View
+                  key={event.id}
+                  style={[
+                    styles.eventCard,
+                    {
+                      backgroundColor: theme.colors.background.primary,
+                      borderLeftColor: getCategoryColor(event.category),
+                    },
+                    isCompleted && { opacity: 0.7 },
+                    isInProgress && {
+                      borderColor: theme.colors.primary[500],
+                      borderWidth: 1,
+                    },
+                  ]}
+                >
+                  <View style={styles.eventCardHeader}>
+                    <View style={styles.eventTimeContainer}>
+                      <Text
+                        style={[
+                          styles.eventTime,
+                          { color: theme.colors.text.secondary },
+                          isCompleted && { color: theme.colors.text.tertiary },
+                        ]}
+                      >
+                        {event.time}
+                      </Text>
+                      <View
+                        style={[
+                          styles.priorityDot,
+                          { backgroundColor: getPriorityColor(event.priority || 'MEDIUM') },
+                        ]}
+                      />
+                    </View>
+
+                    <View style={styles.drawerStatusSection}>
+                      {isCompleted && (
+                        <View
+                          style={[
+                            styles.drawerStatusBadge,
+                            { backgroundColor: theme.colors.success },
+                          ]}
+                        >
+                          <Text style={styles.drawerStatusText}>완료</Text>
+                        </View>
+                      )}
+                      {isInProgress && (
+                        <View
+                          style={[
+                            styles.drawerStatusBadge,
+                            { backgroundColor: theme.colors.primary[500] },
+                          ]}
+                        >
+                          <Text style={styles.drawerStatusText}>진행중</Text>
+                        </View>
+                      )}
+                      {isUpcoming && !isCompleted && !isInProgress && (
+                        <View
+                          style={[
+                            styles.drawerStatusBadge,
+                            { backgroundColor: theme.colors.warning },
+                          ]}
+                        >
+                          <Text style={styles.drawerStatusText}>예정</Text>
+                        </View>
+                      )}
+
+                      <TouchableOpacity style={styles.eventMenuButton}>
+                        <Ionicons
+                          name='ellipsis-horizontal'
+                          size={16}
+                          color={theme.colors.text.tertiary}
+                        />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+
+                  <Text style={[styles.eventTitle, { color: theme.colors.text.primary }]}>
+                    {event.title}
+                  </Text>
+
+                  {event.location && (
+                    <View style={styles.eventLocationContainer}>
+                      <Ionicons
+                        name='location-outline'
+                        size={14}
+                        color={theme.colors.text.tertiary}
+                      />
+                      <Text style={[styles.eventLocation, { color: theme.colors.text.secondary }]}>
+                        {event.location}
+                      </Text>
+                    </View>
+                  )}
+
+                  <View style={styles.eventActions}>
+                    <TouchableOpacity
+                      style={[styles.actionButton, { backgroundColor: theme.colors.primary[50] }]}
+                      onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}
+                    >
+                      <Ionicons name='create-outline' size={16} color={theme.colors.primary[600]} />
+                      <Text style={[styles.actionButtonText, { color: theme.colors.primary[600] }]}>
+                        수정
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              );
+            })}
+
+            {selectedDayEvents.length === 0 && (
+              <View style={styles.emptyEventsContainer}>
+                <Ionicons name='calendar-outline' size={48} color={theme.colors.text.tertiary} />
+                <Text style={[styles.emptyEventsText, { color: theme.colors.text.secondary }]}>
+                  이 날에는 등록된 일정이 없어요
+                </Text>
+                <Text style={[styles.emptyEventsSubtext, { color: theme.colors.text.tertiary }]}>
+                  새로운 일정을 추가해보세요!
+                </Text>
+                <TouchableOpacity
+                  style={[styles.addEventButton, { backgroundColor: theme.colors.primary[500] }]}
+                  onPress={() => {
+                    closeDrawer();
+                    // 약간의 딜레이 후 일정 추가 모달 열기
+                    setTimeout(() => {
+                      showAddEventModal();
+                    }, 300);
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                  }}
+                >
+                  <Ionicons name='add' size={20} color='#FFFFFF' />
+                  <Text style={styles.addEventButtonText}>일정 추가</Text>
+                </TouchableOpacity>
               </View>
             )}
-          </>
-        ) : (
-          renderCalendarView()
-        )}
-      </View>
+          </ScrollView>
+        </Animated.View>
+      </Modal>
 
       {/* 일정 추가 모달 */}
       <AddEventModal
@@ -412,248 +1387,650 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.background.secondary,
   },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.sm,
-    backgroundColor: Colors.background.primary,
-    borderBottomWidth: 0.5,
-    borderBottomColor: Colors.gray[100],
-    minHeight: 44,
-  },
-  greeting: {
-    fontSize: Typography.fontSize.lg,
-    fontWeight: '600',
-    color: Colors.primary[600],
-  },
-  viewToggle: {
-    flexDirection: 'row',
-    backgroundColor: Colors.gray[100],
-    borderRadius: BorderRadius.sm,
-    padding: Spacing.xs / 2,
-  },
-  toggleButton: {
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: Spacing.xs,
-    borderRadius: Spacing.xs,
-  },
-  activeToggle: {
-    backgroundColor: Colors.primary[500],
-    ...Shadows.sm,
-  },
-  content: {
+  calendarWrapper: {
     flex: 1,
-    paddingHorizontal: Spacing.xl,
-    paddingTop: Spacing.lg,
-  },
-  calendarContent: {
-    paddingHorizontal: 0,
-    paddingTop: 0,
-  },
-  sectionTitle: {
-    fontSize: Typography.fontSize.xl,
-    fontWeight: '700',
-    color: Colors.text.primary,
-    marginBottom: Spacing.base,
-  },
-  listContainer: {
-    paddingBottom: Spacing.lg,
-  },
-  eventCard: {
-    backgroundColor: Colors.background.primary,
-    borderRadius: BorderRadius.md,
-    padding: Spacing.base,
-    marginBottom: Spacing.md,
-    borderWidth: 1,
-    borderColor: Colors.gray[100],
-    ...Shadows.sm,
-  },
-  eventHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  eventTime: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  timeText: {
-    fontSize: Typography.fontSize.sm,
-    color: Colors.text.secondary,
-    marginLeft: Spacing.xs,
-    fontWeight: '600',
-  },
-  priorityBadge: {
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: Spacing.xs,
-    borderRadius: BorderRadius.sm,
-  },
-  priorityText: {
-    fontSize: Typography.fontSize.xs,
-    color: Colors.text.inverse,
-    fontWeight: '700',
-  },
-  eventTitle: {
-    fontSize: Typography.fontSize.lg,
-    fontWeight: '600',
-    color: Colors.text.primary,
-    marginBottom: Spacing.sm,
-  },
-  locationRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  locationText: {
-    fontSize: 14,
-    color: '#6B7280',
-    marginLeft: 4,
-  },
-  emptyState: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 60,
-  },
-  emptyStateText: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#374151',
-    marginTop: 16,
-    marginBottom: 8,
-  },
-  emptyStateSubtext: {
-    fontSize: 14,
-    color: '#6B7280',
-    textAlign: 'center',
-    paddingHorizontal: 40,
-  },
-  // 월별 캘린더 스타일
-  calendarScrollView: {
-    flex: 1,
-  },
-  calendarContainer: {
-    backgroundColor: Colors.background.primary,
-    flex: 1,
-  },
-  monthNavigation: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: Spacing.lg,
-    paddingHorizontal: Spacing.lg,
-  },
-  navButton: {
-    padding: Spacing.sm,
-    borderRadius: BorderRadius.base,
-  },
-  monthTitle: {
-    fontSize: Typography.fontSize.xl,
-    fontWeight: '700',
-    color: Colors.text.primary,
   },
   weekHeader: {
     flexDirection: 'row',
-    marginBottom: 8,
-    paddingHorizontal: 4,
+    paddingHorizontal: CALENDAR_PADDING,
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0,0,0,0.05)',
   },
-  dayHeaderText: {
+  weekHeaderDay: {
     flex: 1,
-    textAlign: 'center',
+    alignItems: 'center',
+  },
+  weekHeaderText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+
+  // 헤더 - 미니멀하게 축소
+  pageHeader: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 8,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  headerTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 0,
+  },
+  headerLeft: {
+    flexDirection: 'column',
+    justifyContent: 'center',
+  },
+  headerCenter: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  todayDate: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#6B7280',
-    paddingVertical: 8,
+    letterSpacing: -0.2,
   },
-  sundayHeader: {
-    color: '#EF4444',
+  greeting: {
+    fontSize: 14,
+    fontWeight: '600',
+    letterSpacing: -0.2,
   },
-  saturdayHeader: {
-    color: '#3B82F6',
+  dateSubtext: {
+    fontSize: 10,
+    fontWeight: '400',
+    marginTop: 1,
   },
-  sundayText: {
-    color: '#EF4444',
+  viewToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 3,
+    paddingVertical: 3,
+    borderRadius: 8,
   },
-  saturdayText: {
-    color: '#3B82F6',
+  toggleButton: {
+    width: 32,
+    height: 24,
+    borderRadius: 6,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  calendarGrid: {
-    paddingHorizontal: 4,
+  activeToggle: {
+    // 동적으로 테마 색상 적용됨
+  },
+
+  // 캘린더
+  calendarContainer: {
+    flex: 1,
+  },
+  monthContainer: {
+    paddingHorizontal: CALENDAR_PADDING,
+    paddingTop: 0,
   },
   weekRow: {
     flexDirection: 'row',
-    marginBottom: 1,
+    marginBottom: 0,
   },
   dayCell: {
-    flex: 1,
-    minHeight: 120,
-    backgroundColor: '#FFFFFF',
+    width: CELL_SIZE,
+    height: CELL_HEIGHT,
     borderWidth: 0.5,
-    borderColor: '#E5E7EB',
-    marginHorizontal: 0.5,
-    padding: 6,
-  },
-  todayCell: {
-    backgroundColor: '#F0F9FF',
-    borderWidth: 1.5,
-    borderColor: '#3B82F6',
+    borderColor: 'rgba(0,0,0,0.05)',
+    padding: 3,
+    justifyContent: 'flex-start',
   },
   otherMonthCell: {
-    backgroundColor: '#F9FAFB',
+    opacity: 0.3,
   },
   dayHeader: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 3,
+    height: 18,
+    position: 'relative',
+  },
+  dayNumberContainer: {
+    alignItems: 'center',
+    position: 'relative',
+  },
+  dayNumberBackground: {
+    borderRadius: 4,
+    paddingHorizontal: 2,
+    paddingVertical: 1,
+    minWidth: 18,
+    minHeight: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dayNumber: {
+    fontSize: 14,
+    fontWeight: '600',
+    letterSpacing: -0.2,
+  },
+  todayDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    position: 'absolute',
+    bottom: -8,
+  },
+
+  // 미니 이벤트 카드들
+  eventsContainer: {
+    flex: 1,
+    gap: 1,
+    justifyContent: 'flex-start',
+  },
+  miniEventCard: {
+    borderRadius: 2,
+    paddingHorizontal: 3,
+    paddingVertical: 2,
+    height: 14,
+    justifyContent: 'center',
+    marginBottom: 1,
+  },
+  miniEventTitle: {
+    fontSize: 8,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    lineHeight: 10,
+    textAlign: 'center',
+  },
+  moreEventsIndicator: {
+    borderRadius: 2,
+    paddingHorizontal: 3,
+    paddingVertical: 2,
+    height: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 1,
+  },
+  moreEventsText: {
+    fontSize: 8,
+    fontWeight: '600',
+  },
+
+  // 드로어 모달
+  overlay: {
+    flex: 1,
+  },
+  drawer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: height * 0.85,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  dragHandle: {
+    alignItems: 'center',
+    paddingVertical: 12,
+  },
+  handleBar: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+  },
+  drawerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    paddingHorizontal: 24,
+    paddingBottom: 20,
+  },
+  drawerTitle: {
+    fontSize: 22,
+    fontWeight: '800',
+    letterSpacing: -0.5,
+    marginBottom: 4,
+  },
+  drawerSubtitle: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  closeButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  // 이벤트 리스트
+  eventsListContainer: {
+    flex: 1,
+    paddingHorizontal: 24,
+  },
+  eventCard: {
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 16,
+    borderLeftWidth: 4,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  eventCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  eventTimeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  eventTime: {
+    fontSize: 15,
+    fontWeight: '700',
+    letterSpacing: -0.2,
+  },
+  priorityDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  eventMenuButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  eventTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    letterSpacing: -0.3,
+    marginBottom: 8,
+    lineHeight: 24,
+  },
+  eventLocationContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 16,
+  },
+  eventLocation: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  eventActions: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  actionButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    borderRadius: 12,
+    gap: 6,
+  },
+  actionButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  emptyEventsContainer: {
+    alignItems: 'center',
+    paddingVertical: 60,
+  },
+  emptyEventsText: {
+    fontSize: 16,
+    fontWeight: '500',
+    marginTop: 16,
+  },
+  emptyEventsSubtext: {
+    fontSize: 14,
+    fontWeight: '500',
+    marginTop: 8,
+  },
+  addEventButton: {
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: 20,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  addEventButtonText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+
+  // 리스트 뷰 스타일
+  listContainer: {
+    flex: 1,
+    paddingHorizontal: 20,
+  },
+  listContent: {
+    paddingTop: 20,
+    paddingBottom: 100,
+  },
+  listHeader: {
+    marginBottom: 16,
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    marginBottom: 2,
+    letterSpacing: -0.3,
+  },
+  sectionSubtitle: {
+    fontSize: 14,
+    fontWeight: '500',
+    opacity: 0.7,
+  },
+
+  // 통계 카드 - 컴팩트 버전
+  statsContainer: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 16,
+  },
+  statCard: {
+    flex: 1,
+    borderRadius: 12,
+    padding: 12,
+    alignItems: 'center',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.03,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  statNumber: {
+    fontSize: 18,
+    fontWeight: '700',
+    letterSpacing: -0.3,
+  },
+  statLabel: {
+    fontSize: 10,
+    fontWeight: '600',
+    marginTop: 2,
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
+  },
+
+  // 향상된 이벤트 카드 - 컴팩트 버전
+  enhancedEventCard: {
+    borderRadius: 12,
+    marginBottom: 8,
+    borderWidth: 1,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
+    overflow: 'hidden',
+  },
+  statusIndicator: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: 3,
+  },
+  eventMainContent: {
+    padding: 12,
+    paddingLeft: 16,
+  },
+  eventHeaderLine: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'flex-start',
     marginBottom: 6,
   },
-  dayText: {
+  timeSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  enhancedEventTime: {
+    fontSize: 14,
+    fontWeight: '700',
+    letterSpacing: -0.2,
+  },
+  categoryChip: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  categoryText: {
+    fontSize: 10,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
+  },
+  statusSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  liveIndicator: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
+  liveText: {
+    fontSize: 9,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
+  },
+  statusIndicatorBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    gap: 3,
+    minWidth: 45,
+    justifyContent: 'center',
+  },
+  statusText: {
+    fontSize: 8,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    textTransform: 'uppercase',
+    letterSpacing: 0.2,
+  },
+  priorityBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 5,
+    minWidth: 35,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  priorityText: {
+    fontSize: 8,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    textTransform: 'uppercase',
+    letterSpacing: 0.2,
+  },
+  enhancedEventTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#111827',
+    letterSpacing: -0.2,
+    marginBottom: 4,
+    lineHeight: 20,
   },
-  todayText: {
-    color: '#3B82F6',
-    fontWeight: 'bold',
+  enhancedLocationContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginBottom: 8,
   },
-  otherMonthText: {
-    color: '#D1D5DB',
+  enhancedLocationText: {
+    fontSize: 12,
+    fontWeight: '400',
   },
-  eventsList: {
-    flex: 1,
-    gap: 2,
+  quickActions: {
+    flexDirection: 'row',
+    gap: 6,
   },
-  eventItem: {
-    paddingHorizontal: 6,
-    paddingVertical: 3,
-    borderRadius: 4,
-    marginBottom: 1,
+  quickActionBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 1,
   },
-  eventItemTime: {
-    fontSize: 10,
-    color: '#FFFFFF',
-    fontWeight: '600',
-    marginBottom: 1,
-    opacity: 0.9,
+
+  // 빈 상태
+  emptyStateContainer: {
+    alignItems: 'center',
+    paddingVertical: 80,
   },
-  eventItemTitle: {
-    fontSize: 11,
-    color: '#FFFFFF',
-    fontWeight: '500',
-    lineHeight: 13,
+  emptyStateIcon: {
+    marginBottom: 24,
+    opacity: 0.6,
   },
-  moreEventsButton: {
-    paddingVertical: 2,
-    paddingHorizontal: 4,
-    backgroundColor: '#F3F4F6',
-    borderRadius: 3,
-    marginTop: 2,
-  },
-  moreEventsText: {
-    fontSize: 10,
-    color: '#6B7280',
-    fontWeight: '600',
+  emptyStateTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    marginBottom: 8,
     textAlign: 'center',
   },
-}); 
+  emptyStateSubtitle: {
+    fontSize: 16,
+    fontWeight: '500',
+    textAlign: 'center',
+    lineHeight: 22,
+    marginBottom: 32,
+  },
+  emptyStateButton: {
+    paddingHorizontal: 24,
+    paddingVertical: 14,
+    borderRadius: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  emptyStateButtonText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+
+  listEventCard: {
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 16,
+    borderLeftWidth: 4,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+
+  // 드로어 상태 관련 스타일
+  drawerStatusSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  drawerStatusBadge: {
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderRadius: 4,
+    minWidth: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  drawerStatusText: {
+    fontSize: 7,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    textTransform: 'uppercase',
+    letterSpacing: 0.2,
+  },
+
+  // 필터 섹션 스타일
+  filterSection: {
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    marginBottom: 8,
+  },
+  filterHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  filterTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    letterSpacing: -0.3,
+  },
+  statsText: {
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  statsRate: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  filterTabs: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  filterTab: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    gap: 6,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  filterTabText: {
+    fontSize: 14,
+    fontWeight: '600',
+    letterSpacing: -0.2,
+  },
+  filterTabBadge: {
+    minWidth: 20,
+    height: 20,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 6,
+  },
+  filterTabBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    lineHeight: 12,
+  },
+});

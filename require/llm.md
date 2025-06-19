@@ -3,7 +3,9 @@
 ## 1. LLM 아키텍처 개요
 
 ### 1.1 모델 선택: Solar Pro
+
 **Upstage Solar Pro**를 주력 모델로 선택한 이유:
+
 - **한국어 특화**: 한국어 자연어 처리 성능 우수
 - **컨텍스트 이해**: 긴 문맥 처리 능력 (최대 128K 토큰)
 - **함수 호출**: Function Calling 지원으로 일정 생성/수정 가능
@@ -11,6 +13,7 @@
 - **지연시간**: 한국 서버 위치로 낮은 레이턴시
 
 ### 1.2 하이브리드 모델 전략
+
 ```
 Primary: Solar Pro (한국어 NLU/NLG)
     ↓
@@ -20,6 +23,7 @@ Specialized: Embedding Model (벡터 검색)
 ```
 
 ### 1.3 LangChain 아키텍처
+
 ```python
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
 │   Input Layer   │    │  Processing     │    │  Output Layer   │
@@ -40,6 +44,7 @@ Specialized: Embedding Model (벡터 검색)
 ## 2. 자연어 처리 파이프라인
 
 ### 2.1 입력 처리 체인
+
 ```python
 # langchain_pipeline.py
 from langchain.chains import LLMChain
@@ -56,15 +61,15 @@ class ScheduleInputChain:
             temperature=0.1,
             max_tokens=1024
         )
-        
+
         self.memory = ConversationBufferWindowMemory(
             k=5,  # 최근 5개 대화 기억
             memory_key="chat_history",
             return_messages=True
         )
-        
+
         self.chain = self._create_processing_chain()
-    
+
     def _create_processing_chain(self):
         prompt = PromptTemplate(
             input_variables=["user_input", "current_context", "chat_history"],
@@ -92,7 +97,7 @@ class ScheduleInputChain:
 응답:
 """
         )
-        
+
         return LLMChain(
             llm=self.solar_llm,
             prompt=prompt,
@@ -102,6 +107,7 @@ class ScheduleInputChain:
 ```
 
 ### 2.2 엔티티 추출 시스템
+
 ```python
 class EntityExtractor:
     def __init__(self):
@@ -113,10 +119,10 @@ class EntityExtractor:
             'category': CategoryExtractor(),
             'priority': PriorityAnalyzer()
         }
-    
+
     async def extract_entities(self, text: str, context: dict) -> dict:
         """한국어 텍스트에서 일정 관련 엔티티 추출"""
-        
+
         # Solar Pro를 활용한 엔티티 추출
         extraction_prompt = f"""
 다음 한국어 텍스트에서 일정 관련 정보를 추출하세요:
@@ -159,13 +165,13 @@ JSON 형태로 응답하세요:
     "confidence": 0.95
 }}
 """
-        
+
         response = await self.solar_llm.agenerate([extraction_prompt])
         return self._parse_extraction_response(response.generations[0][0].text)
-    
+
     async def _analyze_priority(self, event_data: dict, context: dict) -> dict:
         """AI 기반 중요도 자동 분석"""
-        
+
         priority_prompt = f"""
 다음 일정의 중요도를 분석하여 상/중/하로 분류하세요:
 
@@ -182,18 +188,18 @@ JSON 형태로 응답하세요:
 - 사용자 선호도: {context.get('user_preferences', {})}
 
 중요도 판단 기준:
-1. 상(HIGH): 
+1. 상(HIGH):
    - 중요한 비즈니스 미팅, 발표, 면접
    - 의료 예약, 법적 의무사항
    - 데드라인이 있는 중요 업무
    - 다수 참석자가 있는 회의
-   
+
 2. 중(MEDIUM):
    - 일반 업무 미팅, 정기 회의
    - 개인 약속, 사교 모임
    - 학습/교육 관련 일정
    - 루틴한 업무
-   
+
 3. 하(LOW):
    - 개인 여가 활동
    - 선택적 참석 이벤트
@@ -208,17 +214,18 @@ JSON 형태로 응답하세요:
     "key_factors": ["중요도에 영향을 준 주요 요소들"]
 }}
 """
-        
+
         response = await self.solar_llm.agenerate([priority_prompt])
         return json.loads(response.generations[0][0].text)
 ```
 
 ### 2.3 의도 분류 시스템
+
 ```python
 class IntentClassifier:
     def __init__(self):
         self.intent_chain = self._create_intent_chain()
-    
+
     def _create_intent_chain(self):
         intent_prompt = PromptTemplate(
             input_variables=["user_input", "context"],
@@ -228,19 +235,19 @@ class IntentClassifier:
 가능한 의도:
 1. CREATE_EVENT: 새로운 일정 생성
    - 예: "내일 2시에 회의 잡아줘", "다음주 치과 예약"
-   
+
 2. MODIFY_EVENT: 기존 일정 수정
    - 예: "회의 시간 3시로 바꿔줘", "내일 약속 취소해줘"
-   
+
 3. QUERY_SCHEDULE: 일정 조회
    - 예: "내일 일정 뭐야?", "이번주 회의 몇 개야?"
-   
+
 4. SUGGEST_OPTIMIZATION: 일정 최적화 요청
    - 예: "일정 정리해줘", "시간 좀 효율적으로 배치해줘"
-   
+
 5. CONFLICT_RESOLUTION: 충돌 해결
    - 예: "겹치는 일정 어떻게 하지?", "시간 조정해줘"
-   
+
 6. GENERAL_CHAT: 일반 대화
    - 예: "안녕", "고마워", "도움말"
 
@@ -257,7 +264,7 @@ class IntentClassifier:
 }}
 """
         )
-        
+
         return LLMChain(
             llm=self.solar_llm,
             prompt=intent_prompt,
@@ -270,6 +277,7 @@ class IntentClassifier:
 ## 3. AI 에이전트 시스템
 
 ### 3.1 다중 에이전트 아키텍처
+
 ```python
 class LinQAgentSystem:
     def __init__(self):
@@ -279,32 +287,33 @@ class LinQAgentSystem:
             'analyzer': AnalyzerAgent(),        # 패턴 분석
             'assistant': AssistantAgent()       # 일반 대화
         }
-        
+
         self.router = AgentRouter()
         self.coordinator = AgentCoordinator()
-    
+
     async def process_request(self, user_input: str, context: dict):
         # 1. 의도 파악 및 에이전트 라우팅
         intent = await self.router.classify_intent(user_input, context)
-        
+
         # 2. 적절한 에이전트 선택
         primary_agent = self.agents[intent.primary_agent]
-        
+
         # 3. 에이전트 실행
         response = await primary_agent.execute(user_input, context)
-        
+
         # 4. 필요시 다른 에이전트와 협업
         if response.needs_collaboration:
             response = await self.coordinator.collaborate(
-                primary_agent, 
-                response, 
+                primary_agent,
+                response,
                 context
             )
-        
+
         return response
 ```
 
 ### 3.2 스케줄러 에이전트
+
 ```python
 class SchedulerAgent:
     def __init__(self):
@@ -315,7 +324,7 @@ class SchedulerAgent:
                 func=self._create_event
             ),
             Tool(
-                name="modify_event", 
+                name="modify_event",
                 description="기존 일정을 수정합니다",
                 func=self._modify_event
             ),
@@ -330,7 +339,7 @@ class SchedulerAgent:
                 func=self._suggest_optimal_time
             )
         ]
-        
+
         self.agent = initialize_agent(
             tools=self.tools,
             llm=self.solar_llm,
@@ -338,37 +347,37 @@ class SchedulerAgent:
             verbose=True,
             memory=self.memory
         )
-    
+
     async def _create_event(self, event_data: str) -> str:
         """일정 생성 도구 함수"""
         try:
             # 1. 입력 데이터 파싱
             parsed_data = json.loads(event_data)
-            
+
             # 2. 충돌 검사
             conflicts = await self._check_conflicts(parsed_data)
-            
+
             if conflicts:
                 # 3. 충돌 해결 제안
                 suggestions = await self._generate_conflict_resolutions(
                     parsed_data, conflicts
                 )
                 return f"일정 충돌이 감지되었습니다. 제안사항: {suggestions}"
-            
+
             # 4. 일정 생성
             event = await self.event_service.create_event(parsed_data)
-            
+
             # 5. 스마트 알림 설정
             await self.notification_service.schedule_smart_reminders(event)
-            
+
             return f"일정이 성공적으로 생성되었습니다: {event.title}"
-            
+
         except Exception as e:
             return f"일정 생성 중 오류가 발생했습니다: {str(e)}"
-    
+
     async def _suggest_optimal_time(self, requirements: str) -> str:
         """최적 시간 제안"""
-        
+
         suggestion_prompt = f"""
 사용자의 요구사항을 분석하여 최적의 일정 시간을 제안하세요.
 
@@ -386,12 +395,13 @@ class SchedulerAgent:
 
 3가지 시간대를 추천하고 각각의 장단점을 설명하세요.
 """
-        
+
         response = await self.solar_llm.agenerate([suggestion_prompt])
         return response.generations[0][0].text
 ```
 
 ### 3.3 최적화 에이전트
+
 ```python
 class OptimizerAgent:
     def __init__(self):
@@ -403,7 +413,7 @@ class OptimizerAgent:
             ),
             Tool(
                 name="suggest_reorganization",
-                description="일정 재구성을 제안합니다", 
+                description="일정 재구성을 제안합니다",
                 func=self._suggest_reorganization
             ),
             Tool(
@@ -412,10 +422,10 @@ class OptimizerAgent:
                 func=self._optimize_travel
             )
         ]
-    
+
     async def _suggest_reorganization(self, schedule_data: str) -> str:
         """일정 재구성 제안"""
-        
+
         optimization_prompt = f"""
 다음 일정을 분석하여 최적화 방안을 제안하세요:
 
@@ -424,7 +434,7 @@ class OptimizerAgent:
 
 최적화 기준:
 1. 생산성 극대화
-2. 이동 시간 최소화  
+2. 이동 시간 최소화
 3. 에너지 효율성
 4. 휴식 시간 확보
 5. 우선순위 고려
@@ -432,12 +442,13 @@ class OptimizerAgent:
 구체적인 재구성 방안을 제시하고, 예상되는 개선 효과를 설명하세요.
 변경이 필요한 일정과 그 이유를 명시하세요.
 """
-        
+
                  response = await self.solar_llm.agenerate([optimization_prompt])
          return response.generations[0][0].text
 ```
 
 ### 3.4 중요도 분석 에이전트
+
 ```python
 class PriorityAnalysisAgent:
     def __init__(self):
@@ -445,7 +456,7 @@ class PriorityAnalysisAgent:
             model="solar-1-mini-chat",
             temperature=0.1  # 일관성 있는 분석을 위해 낮은 온도
         )
-        
+
         self.priority_factors = {
             'deadline_urgency': 0.25,      # 마감일 임박도
             'participant_importance': 0.20, # 참석자 중요도
@@ -454,25 +465,25 @@ class PriorityAnalysisAgent:
             'user_history': 0.10,          # 사용자 과거 패턴
             'time_conflict': 0.10          # 시간 충돌 정도
         }
-    
+
     async def analyze_priority(self, event_data: dict, context: dict) -> dict:
         """종합적인 중요도 분석"""
-        
+
         # 1. 개별 요소 분석
         factor_scores = await self._analyze_individual_factors(event_data, context)
-        
+
         # 2. 가중 평균 계산
         weighted_score = sum(
-            factor_scores[factor] * weight 
+            factor_scores[factor] * weight
             for factor, weight in self.priority_factors.items()
         )
-        
+
         # 3. 점수를 상/중/하로 변환
         priority_level = self._score_to_priority(weighted_score)
-        
+
         # 4. 설명 생성
         reasoning = await self._generate_reasoning(factor_scores, priority_level)
-        
+
         return {
             'priority': priority_level,
             'confidence': self._calculate_confidence(factor_scores),
@@ -480,7 +491,7 @@ class PriorityAnalysisAgent:
             'factor_breakdown': factor_scores,
             'weighted_score': weighted_score
         }
-    
+
     def _score_to_priority(self, score: float) -> str:
         """점수를 우선순위로 변환"""
         if score >= 0.7:
@@ -489,10 +500,10 @@ class PriorityAnalysisAgent:
             return 'MEDIUM'
         else:
             return 'LOW'
-    
+
     async def _analyze_individual_factors(self, event_data: dict, context: dict) -> dict:
         """개별 요소 분석"""
-        
+
         analysis_prompt = f"""
 다음 일정의 각 요소를 0-1 점수로 분석하세요:
 
@@ -518,13 +529,13 @@ JSON 형태로 응답:
     "analysis_notes": "각 점수의 근거"
 }}
 """
-        
+
         response = await self.priority_model.agenerate([analysis_prompt])
         return json.loads(response.generations[0][0].text)
-    
+
     async def learn_from_user_feedback(self, event_id: str, user_correction: str):
         """사용자 피드백을 통한 학습"""
-        
+
         # 사용자가 중요도를 수정한 경우 학습
         feedback_data = {
             'event_id': event_id,
@@ -532,7 +543,7 @@ JSON 형태로 응답:
             'user_correction': user_correction,
             'timestamp': datetime.now()
         }
-        
+
         # 학습 데이터로 저장하여 향후 분석 개선
         await self._update_learning_model(feedback_data)
 ```
@@ -542,6 +553,7 @@ JSON 형태로 응답:
 ## 4. 프롬프트 엔지니어링
 
 ### 4.1 시스템 프롬프트 설계
+
 ```python
 SYSTEM_PROMPTS = {
     "scheduler": """
@@ -612,6 +624,7 @@ SYSTEM_PROMPTS = {
 ```
 
 ### 4.2 Few-Shot 프롬프트 템플릿
+
 ```python
 FEW_SHOT_EXAMPLES = {
     "event_creation": [
@@ -629,7 +642,7 @@ FEW_SHOT_EXAMPLES = {
         {
             "input": "다음주 화요일 저녁에 친구들과 저녁식사",
             "output": {
-                "intent": "CREATE_EVENT", 
+                "intent": "CREATE_EVENT",
                 "title": "친구들과 저녁식사",
                 "start_time": "2024-01-23T18:00:00+09:00",
                 "category": "SOCIAL",
@@ -637,14 +650,14 @@ FEW_SHOT_EXAMPLES = {
             }
         }
     ],
-    
+
     "schedule_optimization": [
         {
             "input": "오늘 일정이 너무 빡빡해서 정리해줘",
             "analysis": "3시간 연속 회의, 이동시간 미고려, 점심시간 없음",
             "suggestions": [
                 "회의 사이 15분 휴식 추가",
-                "점심시간 1시간 확보", 
+                "점심시간 1시간 확보",
                 "화상회의로 이동시간 단축"
             ]
         }
@@ -653,15 +666,16 @@ FEW_SHOT_EXAMPLES = {
 ```
 
 ### 4.3 컨텍스트 관리
+
 ```python
 class ContextManager:
     def __init__(self):
         self.context_window = 4096  # Solar Pro 컨텍스트 윈도우
         self.context_cache = {}
-    
+
     def build_context(self, user_id: str, current_input: str) -> dict:
         """동적 컨텍스트 구성"""
-        
+
         context = {
             "current_time": datetime.now().isoformat(),
             "user_timezone": self._get_user_timezone(user_id),
@@ -671,29 +685,29 @@ class ContextManager:
             "conversation_history": self._get_conversation_history(user_id),
             "location_context": self._get_location_context(user_id)
         }
-        
+
         # 컨텍스트 크기 최적화
         optimized_context = self._optimize_context_size(context)
-        
+
         return optimized_context
-    
+
     def _optimize_context_size(self, context: dict) -> dict:
         """컨텍스트 크기를 모델 한계에 맞게 최적화"""
-        
+
         # 우선순위 기반 컨텍스트 압축
         priority_order = [
             "current_time",
-            "user_timezone", 
+            "user_timezone",
             "recent_events",
             "conversation_history",
             "user_patterns",
             "preferences",
             "location_context"
         ]
-        
+
         optimized = {}
         token_count = 0
-        
+
         for key in priority_order:
             item_tokens = self._estimate_tokens(context[key])
             if token_count + item_tokens < self.context_window * 0.7:  # 70% 활용
@@ -703,7 +717,7 @@ class ContextManager:
                 # 중요한 정보만 요약해서 포함
                 optimized[key] = self._summarize_context_item(context[key])
                 break
-        
+
         return optimized
 ```
 
@@ -712,16 +726,17 @@ class ContextManager:
 ## 5. 학습 및 개인화
 
 ### 5.1 사용자 피드백 학습
+
 ```python
 class FeedbackLearningSystem:
     def __init__(self):
         self.feedback_processor = FeedbackProcessor()
         self.pattern_updater = PatternUpdater()
         self.preference_learner = PreferenceLearner()
-    
+
     async def process_feedback(self, user_id: str, feedback_data: dict):
         """사용자 피드백을 통한 학습"""
-        
+
         feedback_analysis_prompt = f"""
 다음 사용자 피드백을 분석하여 학습 포인트를 추출하세요:
 
@@ -746,28 +761,29 @@ AI 응답: {feedback_data['ai_response']}
     "improvement_areas": ["개선이 필요한 영역"]
 }}
 """
-        
+
         analysis = await self.solar_llm.agenerate([feedback_analysis_prompt])
         learning_points = json.loads(analysis.generations[0][0].text)
-        
+
         # 학습 내용을 사용자 프로필에 반영
         await self._update_user_profile(user_id, learning_points)
-        
+
         # 벡터 데이터베이스 업데이트
         await self._update_embeddings(user_id, learning_points)
 ```
 
 ### 5.2 개인화 프롬프트 생성
+
 ```python
 class PersonalizedPromptGenerator:
     def __init__(self):
         self.user_profiles = {}
-    
+
     def generate_personalized_prompt(self, user_id: str, base_prompt: str) -> str:
         """사용자별 개인화된 프롬프트 생성"""
-        
+
         user_profile = self._get_user_profile(user_id)
-        
+
         personalization_layer = f"""
 사용자 개인화 정보:
 - 선호 시간대: {user_profile.get('preferred_times', [])}
@@ -779,20 +795,21 @@ class PersonalizedPromptGenerator:
 
 이 정보를 바탕으로 사용자에게 최적화된 응답을 제공하세요.
 """
-        
+
         return f"{base_prompt}\n\n{personalization_layer}"
 ```
 
 ### 5.3 실시간 학습 파이프라인
+
 ```python
 class RealTimeLearningPipeline:
     def __init__(self):
         self.learning_queue = asyncio.Queue()
         self.batch_processor = BatchProcessor()
-        
+
     async def continuous_learning(self):
         """실시간 지속 학습"""
-        
+
         while True:
             try:
                 # 배치 학습 데이터 수집
@@ -800,19 +817,19 @@ class RealTimeLearningPipeline:
                 for _ in range(10):  # 10개씩 배치 처리
                     if not self.learning_queue.empty():
                         batch_data.append(await self.learning_queue.get())
-                
+
                 if batch_data:
                     # 배치 분석
                     insights = await self._analyze_batch(batch_data)
-                    
+
                     # 글로벌 패턴 업데이트
                     await self._update_global_patterns(insights)
-                    
+
                     # 개별 사용자 프로필 업데이트
                     await self._update_individual_profiles(batch_data)
-                
+
                 await asyncio.sleep(300)  # 5분마다 실행
-                
+
             except Exception as e:
                 logger.error(f"Learning pipeline error: {e}")
                 await asyncio.sleep(60)
@@ -823,42 +840,44 @@ class RealTimeLearningPipeline:
 ## 6. 성능 최적화
 
 ### 6.1 응답 시간 최적화
+
 ```python
 class ResponseOptimizer:
     def __init__(self):
         self.cache_manager = CacheManager()
         self.streaming_enabled = True
-        
+
     async def optimize_response(self, query: str, context: dict) -> str:
         """응답 속도 최적화"""
-        
+
         # 1. 캐시 확인
         cache_key = self._generate_cache_key(query, context)
         cached_response = await self.cache_manager.get(cache_key)
-        
+
         if cached_response and cached_response['confidence'] > 0.9:
             return cached_response['response']
-        
+
         # 2. 스트리밍 응답
         if self.streaming_enabled:
             return await self._stream_response(query, context)
-        
+
         # 3. 일반 응답
         return await self._generate_response(query, context)
-    
+
     async def _stream_response(self, query: str, context: dict):
         """스트리밍 방식 응답 생성"""
-        
+
         async def response_generator():
             prompt = self._build_prompt(query, context)
-            
+
             async for chunk in self.solar_llm.astream(prompt):
                 yield chunk.content
-        
+
         return response_generator()
 ```
 
 ### 6.2 토큰 사용량 최적화
+
 ```python
 class TokenOptimizer:
     def __init__(self):
@@ -866,23 +885,23 @@ class TokenOptimizer:
             'solar-pro': 128000,
             'solar-mini': 32000
         }
-    
+
     def optimize_prompt(self, prompt: str, model: str) -> str:
         """프롬프트 토큰 최적화"""
-        
+
         current_tokens = self._count_tokens(prompt)
         limit = self.token_limits.get(model, 32000)
-        
+
         if current_tokens <= limit * 0.8:  # 80% 이하 사용
             return prompt
-        
+
         # 프롬프트 압축
         compressed = self._compress_prompt(prompt, limit * 0.7)
         return compressed
-    
+
     def _compress_prompt(self, prompt: str, target_tokens: int) -> str:
         """프롬프트 지능형 압축"""
-        
+
         compression_prompt = f"""
 다음 프롬프트를 {target_tokens} 토큰 이하로 압축하되, 핵심 정보는 유지하세요:
 
@@ -895,13 +914,14 @@ class TokenOptimizer:
 3. 불필요한 예시 축소
 4. 요약 및 압축
 """
-        
+
         # Solar Pro로 압축 수행
         response = self.solar_llm.generate([compression_prompt])
         return response.generations[0][0].text
 ```
 
 ### 6.3 모델 선택 전략
+
 ```python
 class ModelSelector:
     def __init__(self):
@@ -915,7 +935,7 @@ class ModelSelector:
             'solar-mini': {
                 'cost': 0.05,
                 'speed': 'fast',
-                'capability': 'medium', 
+                'capability': 'medium',
                 'context_window': 32000
             },
             'gpt-4': {
@@ -925,10 +945,10 @@ class ModelSelector:
                 'context_window': 128000
             }
         }
-    
+
     def select_optimal_model(self, task_type: str, complexity: float, urgency: str) -> str:
         """작업 특성에 따른 최적 모델 선택"""
-        
+
         if task_type == 'simple_scheduling' and complexity < 0.5:
             return 'solar-mini'
         elif task_type == 'complex_optimization' and complexity > 0.8:
@@ -942,6 +962,7 @@ class ModelSelector:
 ## 7. 품질 보증 및 모니터링
 
 ### 7.1 응답 품질 평가
+
 ```python
 class QualityAssurance:
     def __init__(self):
@@ -951,25 +972,25 @@ class QualityAssurance:
             'safety': SafetyEvaluator(),
             'coherence': CoherenceEvaluator()
         }
-    
+
     async def evaluate_response(self, query: str, response: str, context: dict) -> dict:
         """응답 품질 종합 평가"""
-        
+
         evaluation_results = {}
-        
+
         for metric, evaluator in self.evaluators.items():
             score = await evaluator.evaluate(query, response, context)
             evaluation_results[metric] = score
-        
+
         # 종합 품질 점수 계산
         overall_score = self._calculate_overall_score(evaluation_results)
-        
+
         return {
             'individual_scores': evaluation_results,
             'overall_score': overall_score,
             'quality_level': self._get_quality_level(overall_score)
         }
-    
+
     def _calculate_overall_score(self, scores: dict) -> float:
         """가중 평균으로 종합 점수 계산"""
         weights = {
@@ -978,42 +999,43 @@ class QualityAssurance:
             'safety': 0.2,
             'coherence': 0.1
         }
-        
+
         return sum(scores[metric] * weight for metric, weight in weights.items())
 ```
 
 ### 7.2 실시간 모니터링
+
 ```python
 class LLMMonitoring:
     def __init__(self):
         self.metrics_collector = MetricsCollector()
         self.alert_manager = AlertManager()
-        
+
     async def monitor_performance(self):
         """LLM 성능 실시간 모니터링"""
-        
+
         while True:
             try:
                 # 성능 메트릭 수집
                 metrics = await self._collect_metrics()
-                
+
                 # 임계값 확인
                 alerts = self._check_thresholds(metrics)
-                
+
                 if alerts:
                     await self.alert_manager.send_alerts(alerts)
-                
+
                 # 메트릭 저장
                 await self._store_metrics(metrics)
-                
+
                 await asyncio.sleep(60)  # 1분마다 모니터링
-                
+
             except Exception as e:
                 logger.error(f"Monitoring error: {e}")
-    
+
     async def _collect_metrics(self) -> dict:
         """성능 메트릭 수집"""
-        
+
         return {
             'response_time': await self._get_avg_response_time(),
             'success_rate': await self._get_success_rate(),
@@ -1025,15 +1047,16 @@ class LLMMonitoring:
 ```
 
 ### 7.3 A/B 테스트 시스템
+
 ```python
 class ABTestManager:
     def __init__(self):
         self.experiments = {}
         self.traffic_splitter = TrafficSplitter()
-        
+
     def create_experiment(self, name: str, variants: dict, traffic_split: dict):
         """A/B 테스트 실험 생성"""
-        
+
         self.experiments[name] = {
             'variants': variants,
             'traffic_split': traffic_split,
@@ -1041,24 +1064,24 @@ class ABTestManager:
             'start_time': datetime.now(),
             'status': 'active'
         }
-    
+
     async def get_variant_for_user(self, experiment_name: str, user_id: str) -> str:
         """사용자별 실험 변형 할당"""
-        
+
         if experiment_name not in self.experiments:
             return 'control'
-        
+
         experiment = self.experiments[experiment_name]
-        
+
         # 일관된 할당을 위한 해시 기반 분할
         user_hash = hash(f"{experiment_name}_{user_id}") % 100
-        
+
         cumulative = 0
         for variant, percentage in experiment['traffic_split'].items():
             cumulative += percentage
             if user_hash < cumulative:
                 return variant
-        
+
         return 'control'
 ```
 
@@ -1067,6 +1090,7 @@ class ABTestManager:
 ## 8. 보안 및 개인정보 보호
 
 ### 8.1 데이터 마스킹
+
 ```python
 class DataMasking:
     def __init__(self):
@@ -1075,65 +1099,66 @@ class DataMasking:
             (r'\d{3}-\d{4}-\d{4}', 'PHONE'),       # 전화번호
             (r'\d{6}-\d{7}', 'SSN'),               # 주민번호
         ]
-    
+
     def mask_sensitive_data(self, text: str) -> tuple[str, dict]:
         """민감 정보 마스킹"""
-        
+
         masked_text = text
         mapping = {}
-        
+
         for pattern, data_type in self.sensitive_patterns:
             matches = re.finditer(pattern, text)
             for i, match in enumerate(matches):
                 original = match.group()
                 placeholder = f"[{data_type}_{i}]"
-                
+
                 masked_text = masked_text.replace(original, placeholder)
                 mapping[placeholder] = original
-        
+
         return masked_text, mapping
-    
+
     def unmask_response(self, response: str, mapping: dict) -> str:
         """응답에서 마스킹 해제"""
-        
+
         unmasked_response = response
         for placeholder, original in mapping.items():
             unmasked_response = unmasked_response.replace(placeholder, original)
-        
+
         return unmasked_response
 ```
 
 ### 8.2 프라이버시 보호
+
 ```python
 class PrivacyProtector:
     def __init__(self):
         self.anonymizer = DataAnonymizer()
         self.encryptor = DataEncryptor()
-    
+
     async def protect_user_data(self, user_data: dict) -> dict:
         """사용자 데이터 프라이버시 보호"""
-        
+
         # 1. 개인식별정보 익명화
         anonymized_data = self.anonymizer.anonymize(user_data)
-        
+
         # 2. 민감 정보 암호화
         encrypted_data = self.encryptor.encrypt_sensitive_fields(anonymized_data)
-        
+
         # 3. 데이터 최소화
         minimized_data = self._minimize_data(encrypted_data)
-        
+
         return minimized_data
-    
+
     def _minimize_data(self, data: dict) -> dict:
         """필요한 데이터만 유지"""
-        
+
         essential_fields = [
             'user_patterns',
-            'preferences', 
+            'preferences',
             'schedule_context',
             'anonymized_history'
         ]
-        
+
         return {k: v for k, v in data.items() if k in essential_fields}
 ```
 
@@ -1142,21 +1167,22 @@ class PrivacyProtector:
 ## 9. 배포 및 운영
 
 ### 9.1 모델 버전 관리
+
 ```python
 class ModelVersionManager:
     def __init__(self):
         self.versions = {}
         self.deployment_manager = DeploymentManager()
-    
+
     async def deploy_new_version(self, version: str, model_config: dict):
         """새 모델 버전 배포"""
-        
+
         # 1. 카나리 배포 (5% 트래픽)
         await self.deployment_manager.deploy_canary(version, model_config, 0.05)
-        
+
         # 2. 성능 모니터링 (24시간)
         monitoring_results = await self._monitor_canary(version, hours=24)
-        
+
         # 3. 성능 임계값 확인
         if monitoring_results['success_rate'] > 0.95:
             # 점진적 트래픽 증가
@@ -1167,33 +1193,34 @@ class ModelVersionManager:
 ```
 
 ### 9.2 설정 관리
+
 ```yaml
 # llm_config.yaml
 models:
   solar_pro:
-    endpoint: "https://api.upstage.ai/v1"
-    model_name: "solar-1-mini-chat"
+    endpoint: 'https://api.upstage.ai/v1'
+    model_name: 'solar-1-mini-chat'
     max_tokens: 1024
     temperature: 0.1
     timeout: 30
     retry_count: 3
-    
+
   fallback:
-    endpoint: "https://api.openai.com/v1"
-    model_name: "gpt-4-1106-preview"
+    endpoint: 'https://api.openai.com/v1'
+    model_name: 'gpt-4-1106-preview'
     max_tokens: 2048
     temperature: 0.2
 
 performance:
-  cache_ttl: 3600  # 1시간
+  cache_ttl: 3600 # 1시간
   max_concurrent_requests: 100
-  rate_limit: 1000  # requests per minute
-  
+  rate_limit: 1000 # requests per minute
+
 monitoring:
-  metrics_interval: 60  # seconds
+  metrics_interval: 60 # seconds
   alert_thresholds:
-    response_time: 5000  # ms
-    error_rate: 0.05     # 5%
+    response_time: 5000 # ms
+    error_rate: 0.05 # 5%
     satisfaction_score: 0.8
 
 privacy:
@@ -1204,4 +1231,6 @@ privacy:
 
 ---
 
-이 LLM 명세서는 Solar Pro 모델과 LangChain을 활용하여 LinQ의 AI 기능을 구현하기 위한 완전한 가이드라인을 제공합니다. 한국어 특화 모델의 장점을 최대한 활용하면서도 확장성과 안정성을 보장하는 아키텍처를 설계했습니다.
+이 LLM 명세서는 Solar Pro 모델과 LangChain을 활용하여 LinQ의 AI 기능을 구현하기
+위한 완전한 가이드라인을 제공합니다. 한국어 특화 모델의 장점을 최대한
+활용하면서도 확장성과 안정성을 보장하는 아키텍처를 설계했습니다.

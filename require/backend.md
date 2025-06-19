@@ -2,39 +2,47 @@
 
 ## 1. 프로젝트 개요
 
-**LinQ Backend**는 AI 기반 스마트 일정 관리 서비스의 서버 애플리케이션입니다. 사용자의 일정 데이터를 관리하고, AI 기반 분석 및 추천 기능을 제공하며, 실시간 통신을 통해 모바일 클라이언트와 연동됩니다.
+**LinQ Backend**는 AI 기반 스마트 일정 관리 서비스의 서버 애플리케이션입니다.
+사용자의 일정 데이터를 관리하고, AI 기반 분석 및 추천 기능을 제공하며, 실시간
+통신을 통해 모바일 클라이언트와 연동됩니다.
 
 ---
 
 ## 2. 기술 스택
 
 ### 2.1 Core Framework
+
 - **Node.js 18+**: 서버 런타임
 - **Express.js**: 웹 프레임워크
 - **TypeScript**: 타입 안전성 확보
 - **Prisma**: ORM 및 데이터베이스 관리
 
 ### 2.2 데이터베이스
+
 - **MongoDB**: 주 데이터베이스 (일정, 사용자 데이터)
 - **Redis**: 캐싱 및 세션 관리
 - **Vector Database (Pinecone)**: AI 임베딩 저장
 
 ### 2.3 AI 연동
+
 - **OpenAI GPT-4**: 자연어 처리 및 일정 생성
 - **LangChain**: AI 파이프라인 관리
 - **Python FastAPI**: AI 모델 서빙 (별도 마이크로서비스)
 
 ### 2.4 실시간 통신
+
 - **Socket.io**: WebSocket 기반 실시간 통신
 - **Bull Queue**: 백그라운드 작업 처리
 
 ### 2.5 인증 & 보안
+
 - **JWT**: 인증 토큰 관리
 - **bcrypt**: 비밀번호 해싱
 - **Passport.js**: 인증 전략
 - **helmet**: 보안 미들웨어
 
 ### 2.6 외부 서비스
+
 - **Google Calendar API**: 캘린더 동기화
 - **Maps API**: 위치 기반 서비스
 - **Push Notification**: FCM/APNS
@@ -44,6 +52,7 @@
 ## 3. 서버 아키텍처
 
 ### 3.1 마이크로서비스 구조
+
 ```
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
 │   Main API      │    │   AI Service    │    │  Notification   │
@@ -63,6 +72,7 @@
 ```
 
 ### 3.2 폴더 구조
+
 ```
 backend/
 ├── src/
@@ -123,6 +133,7 @@ backend/
 ## 4. 데이터베이스 스키마
 
 ### 4.1 Prisma 스키마 정의
+
 ```prisma
 // User 모델
 model User {
@@ -134,12 +145,12 @@ model User {
   preferences     Json?     // AI 학습 설정
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
-  
+
   events          Event[]
   chatHistory     ChatMessage[]
   notifications   Notification[]
   analytics       UserAnalytics[]
-  
+
   @@map("users")
 }
 
@@ -160,13 +171,13 @@ model Event {
   aiGenerated     Boolean       @default(false)
   confidence      Float?        // AI 생성 시 신뢰도
   metadata        Json?         // 추가 메타데이터
-  
+
   userId          String
   user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
+
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
-  
+
   @@map("events")
 }
 
@@ -178,12 +189,12 @@ model ChatMessage {
   intent          String?     // 파싱된 의도
   entities        Json?       // 추출된 엔티티
   confidence      Float?      // AI 응답 신뢰도
-  
+
   userId          String
   user            User        @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
+
   createdAt       DateTime    @default(now())
-  
+
   @@map("chat_messages")
 }
 
@@ -197,12 +208,12 @@ model Notification {
   scheduledAt     DateTime
   sentAt          DateTime?
   data            Json?             // 추가 데이터
-  
+
   userId          String
   user            User              @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
+
   createdAt       DateTime          @default(now())
-  
+
   @@map("notifications")
 }
 
@@ -215,12 +226,12 @@ model UserAnalytics {
   productivityScore Float?
   timeDistribution Json?    // 카테고리별 시간 분배
   insights        Json?     // AI 인사이트
-  
+
   userId          String
   user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
+
   createdAt       DateTime  @default(now())
-  
+
   @@unique([userId, date])
   @@map("user_analytics")
 }
@@ -275,6 +286,7 @@ enum NotificationStatus {
 ### 5.1 인증 API
 
 #### POST /api/auth/register
+
 ```typescript
 // 회원가입
 Request Body: {
@@ -296,6 +308,7 @@ Response: {
 ```
 
 #### POST /api/auth/login
+
 ```typescript
 // 로그인
 Request Body: {
@@ -313,6 +326,7 @@ Response: {
 ### 5.2 이벤트 API
 
 #### GET /api/events
+
 ```typescript
 // 이벤트 목록 조회
 Query Parameters: {
@@ -329,6 +343,7 @@ Response: {
 ```
 
 #### POST /api/events
+
 ```typescript
 // 이벤트 생성
 Request Body: {
@@ -350,6 +365,7 @@ Response: {
 ```
 
 #### PUT /api/events/:eventId
+
 ```typescript
 // 이벤트 수정
 Request Body: Partial<Event>
@@ -360,6 +376,7 @@ Response: {
 ```
 
 #### DELETE /api/events/:eventId
+
 ```typescript
 // 이벤트 삭제
 Response: {
@@ -370,6 +387,7 @@ Response: {
 ### 5.3 AI API
 
 #### POST /api/ai/chat
+
 ```typescript
 // AI 채팅
 Request Body: {
@@ -389,6 +407,7 @@ Response: {
 ```
 
 #### POST /api/ai/parse-natural-language
+
 ```typescript
 // 자연어 일정 파싱
 Request Body: {
@@ -404,6 +423,7 @@ Response: {
 ```
 
 #### GET /api/ai/suggestions
+
 ```typescript
 // AI 일정 제안
 Query Parameters: {
@@ -419,6 +439,7 @@ Response: {
 ### 5.4 분석 API
 
 #### GET /api/analytics/summary
+
 ```typescript
 // 분석 요약
 Query Parameters: {
@@ -442,13 +463,14 @@ Response: {
 ## 6. AI 서비스 구현
 
 ### 6.1 자연어 처리 파이프라인
+
 ```python
 # ai-service/services/nlp_service.py
 class NLPService:
     def __init__(self):
         self.client = OpenAI()
         self.chain = self._create_parsing_chain()
-    
+
     async def parse_event(self, input_text: str, context: dict) -> ParsedEvent:
         """자연어 입력을 이벤트 객체로 파싱"""
         prompt = self._create_parsing_prompt(input_text, context)
@@ -458,56 +480,72 @@ class NLPService:
             functions=[self._get_event_schema()],
             function_call={"name": "create_event"}
         )
-        
+
         return self._parse_response(response)
-    
+
     async def generate_suggestions(self, user_data: dict) -> List[EventSuggestion]:
         """사용자 패턴을 기반으로 일정 제안 생성"""
         # 사용자 일정 패턴 분석
         patterns = await self._analyze_user_patterns(user_data)
-        
+
         # AI 기반 제안 생성
         suggestions = await self._generate_smart_suggestions(patterns)
-        
+
         return suggestions
 ```
 
 ### 6.2 충돌 감지 및 해결
+
 ```typescript
 // src/services/conflict.service.ts
 export class ConflictService {
-  async detectConflicts(newEvent: Partial<Event>, userId: string): Promise<ConflictResult> {
-    const overlappingEvents = await this.findOverlappingEvents(newEvent, userId);
-    
+  async detectConflicts(
+    newEvent: Partial<Event>,
+    userId: string
+  ): Promise<ConflictResult> {
+    const overlappingEvents = await this.findOverlappingEvents(
+      newEvent,
+      userId
+    );
+
     if (overlappingEvents.length === 0) {
       return { hasConflict: false };
     }
-    
-    const resolutions = await this.generateResolutions(newEvent, overlappingEvents);
-    
+
+    const resolutions = await this.generateResolutions(
+      newEvent,
+      overlappingEvents
+    );
+
     return {
       hasConflict: true,
       conflictingEvents: overlappingEvents,
-      suggestedResolutions: resolutions
+      suggestedResolutions: resolutions,
     };
   }
-  
-  async analyzePriorityLevel(eventData: Partial<Event>, userContext: any): Promise<PriorityAnalysis> {
+
+  async analyzePriorityLevel(
+    eventData: Partial<Event>,
+    userContext: any
+  ): Promise<PriorityAnalysis> {
     /**
      * AI 기반 중요도 자동 분석
      */
-    const analysisPrompt = this.buildPriorityAnalysisPrompt(eventData, userContext);
-    
+    const analysisPrompt = this.buildPriorityAnalysisPrompt(
+      eventData,
+      userContext
+    );
+
     const aiResponse = await this.aiService.analyzeText(analysisPrompt);
-    
+
     return {
       priority: aiResponse.priority, // HIGH, MEDIUM, LOW
       confidence: aiResponse.confidence,
       reasoning: aiResponse.reasoning,
-      factors: aiResponse.key_factors
+      factors: aiResponse.key_factors,
     };
   }
-  
+
   private async generateResolutions(
     newEvent: Partial<Event>,
     conflicts: Event[]
@@ -516,9 +554,9 @@ export class ConflictService {
     const aiSuggestions = await this.aiService.generateConflictResolutions({
       newEvent,
       conflicts,
-      userPreferences: await this.getUserPreferences()
+      userPreferences: await this.getUserPreferences(),
     });
-    
+
     return aiSuggestions;
   }
 }
@@ -529,12 +567,13 @@ export class ConflictService {
 ## 7. WebSocket 실시간 통신
 
 ### 7.1 Socket.io 이벤트 정의
+
 ```typescript
 // src/websocket/events.ts
 export interface ServerToClientEvents {
   'ai-response': (data: AIResponseData) => void;
   'event-updated': (event: Event) => void;
-  'notification': (notification: Notification) => void;
+  notification: (notification: Notification) => void;
   'conflict-detected': (conflict: ConflictData) => void;
   'sync-complete': () => void;
 }
@@ -542,11 +581,12 @@ export interface ServerToClientEvents {
 export interface ClientToServerEvents {
   'join-room': (userId: string) => void;
   'ai-chat': (message: string) => void;
-  'typing': (isTyping: boolean) => void;
+  typing: (isTyping: boolean) => void;
 }
 ```
 
 ### 7.2 AI 채팅 핸들러
+
 ```typescript
 // src/websocket/chat.handler.ts
 export class ChatHandler {
@@ -554,20 +594,23 @@ export class ChatHandler {
     private io: Server,
     private aiService: AIService
   ) {}
-  
+
   handleConnection(socket: Socket) {
     socket.on('ai-chat', async (message: string) => {
       try {
         // 실시간 타이핑 표시
         socket.emit('ai-typing', true);
-        
+
         // AI 응답 스트리밍
-        const responseStream = await this.aiService.chatStream(message, socket.userId);
-        
+        const responseStream = await this.aiService.chatStream(
+          message,
+          socket.userId
+        );
+
         for await (const chunk of responseStream) {
           socket.emit('ai-response-chunk', chunk);
         }
-        
+
         socket.emit('ai-typing', false);
       } catch (error) {
         socket.emit('ai-error', error.message);
@@ -582,51 +625,62 @@ export class ChatHandler {
 ## 8. 백그라운드 작업
 
 ### 8.1 알림 스케줄링
+
 ```typescript
 // src/jobs/notification.job.ts
 export class NotificationJob {
   async scheduleSmartReminder(event: Event): Promise<void> {
     const reminderTime = await this.calculateOptimalReminderTime(event);
-    
-    await this.queue.add('send-notification', {
-      eventId: event.id,
-      userId: event.userId,
-      type: 'smart-reminder'
-    }, {
-      delay: reminderTime.getTime() - Date.now()
-    });
+
+    await this.queue.add(
+      'send-notification',
+      {
+        eventId: event.id,
+        userId: event.userId,
+        type: 'smart-reminder',
+      },
+      {
+        delay: reminderTime.getTime() - Date.now(),
+      }
+    );
   }
-  
+
   private async calculateOptimalReminderTime(event: Event): Promise<Date> {
     // 위치 기반 이동 시간 계산
     const travelTime = await this.mapsService.calculateTravelTime({
       destination: event.location,
-      userId: event.userId
+      userId: event.userId,
     });
-    
+
     // 사용자 패턴 기반 준비 시간 예측
     const prepTime = await this.predictPreparationTime(event);
-    
-    return new Date(event.startTime.getTime() - (travelTime + prepTime) * 60000);
+
+    return new Date(
+      event.startTime.getTime() - (travelTime + prepTime) * 60000
+    );
   }
 }
 ```
 
 ### 8.2 일일 분석 작업
+
 ```typescript
 // src/jobs/analytics.job.ts
 export class AnalyticsJob {
   @Cron('0 6 * * *') // 매일 오전 6시
   async generateDailySummary(): Promise<void> {
     const users = await this.userService.getActiveUsers();
-    
+
     for (const user of users) {
       const analytics = await this.calculateDailyAnalytics(user.id);
       await this.analyticsService.saveDailyAnalytics(user.id, analytics);
-      
+
       // AI 인사이트 생성
       const insights = await this.aiService.generateDailyInsights(analytics);
-      await this.notificationService.scheduleInsightNotification(user.id, insights);
+      await this.notificationService.scheduleInsightNotification(
+        user.id,
+        insights
+      );
     }
   }
 }
@@ -637,23 +691,28 @@ export class AnalyticsJob {
 ## 9. 보안 구현
 
 ### 9.1 JWT 인증 미들웨어
+
 ```typescript
 // src/middleware/auth.middleware.ts
-export const authenticateJWT = async (req: Request, res: Response, next: NextFunction) => {
+export const authenticateJWT = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
   try {
     const token = extractTokenFromHeader(req.headers.authorization);
-    
+
     if (!token) {
       return res.status(401).json({ error: 'Access token required' });
     }
-    
+
     const decoded = jwt.verify(token, process.env.JWT_SECRET!) as JWTPayload;
     const user = await User.findById(decoded.userId);
-    
+
     if (!user) {
       return res.status(401).json({ error: 'Invalid token' });
     }
-    
+
     req.user = user;
     next();
   } catch (error) {
@@ -663,6 +722,7 @@ export const authenticateJWT = async (req: Request, res: Response, next: NextFun
 ```
 
 ### 9.2 Rate Limiting
+
 ```typescript
 // src/middleware/rate-limit.middleware.ts
 export const createRateLimit = (maxRequests: number, windowMs: number) => {
@@ -671,10 +731,10 @@ export const createRateLimit = (maxRequests: number, windowMs: number) => {
     max: maxRequests,
     message: {
       error: 'Too many requests',
-      retryAfter: windowMs / 1000
+      retryAfter: windowMs / 1000,
     },
     standardHeaders: true,
-    legacyHeaders: false
+    legacyHeaders: false,
   });
 };
 
@@ -687,24 +747,25 @@ export const aiRateLimit = createRateLimit(20, 15 * 60 * 1000); // 15분당 20�
 ## 10. 외부 서비스 연동
 
 ### 10.1 Google Calendar 동기화
+
 ```typescript
 // src/services/calendar-sync.service.ts
 export class CalendarSyncService {
   async syncWithGoogleCalendar(userId: string): Promise<void> {
     const user = await this.userService.findById(userId);
     const oauth2Client = await this.getGoogleOAuth2Client(user);
-    
+
     const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
-    
+
     // Google Calendar에서 이벤트 가져오기
     const googleEvents = await calendar.events.list({
       calendarId: 'primary',
       timeMin: new Date().toISOString(),
       maxResults: 100,
       singleEvents: true,
-      orderBy: 'startTime'
+      orderBy: 'startTime',
     });
-    
+
     // 양방향 동기화
     await this.bidirectionalSync(userId, googleEvents.data.items);
   }
@@ -712,24 +773,28 @@ export class CalendarSyncService {
 ```
 
 ### 10.2 Push Notification 서비스
+
 ```typescript
 // src/services/push-notification.service.ts
 export class PushNotificationService {
-  async sendNotification(userId: string, notification: NotificationData): Promise<void> {
+  async sendNotification(
+    userId: string,
+    notification: NotificationData
+  ): Promise<void> {
     const user = await this.userService.findById(userId);
     const deviceTokens = await this.getDeviceTokens(userId);
-    
+
     const message = {
       notification: {
         title: notification.title,
-        body: notification.message
+        body: notification.message,
       },
       data: notification.data,
-      tokens: deviceTokens
+      tokens: deviceTokens,
     };
-    
+
     await admin.messaging().sendMulticast(message);
-    
+
     // 알림 전송 기록
     await this.notificationService.markAsSent(notification.id);
   }
@@ -741,51 +806,54 @@ export class PushNotificationService {
 ## 11. 테스트 전략
 
 ### 11.1 단위 테스트
+
 ```typescript
 // tests/services/event.service.test.ts
 describe('EventService', () => {
   let eventService: EventService;
   let mockRepository: jest.Mocked<EventRepository>;
-  
+
   beforeEach(() => {
     mockRepository = createMockRepository();
     eventService = new EventService(mockRepository);
   });
-  
+
   describe('createEvent', () => {
     it('should create event successfully', async () => {
       const eventData = createMockEventData();
       mockRepository.create.mockResolvedValue(eventData);
-      
+
       const result = await eventService.createEvent(eventData);
-      
+
       expect(result).toEqual(eventData);
       expect(mockRepository.create).toHaveBeenCalledWith(eventData);
     });
-    
+
     it('should detect conflicts', async () => {
       const conflictingEvent = createMockConflictingEvent();
       mockRepository.findOverlapping.mockResolvedValue([conflictingEvent]);
-      
-      await expect(eventService.createEvent(eventData))
-        .rejects.toThrow('Event conflict detected');
+
+      await expect(eventService.createEvent(eventData)).rejects.toThrow(
+        'Event conflict detected'
+      );
     });
   });
 });
 ```
 
 ### 11.2 통합 테스트
+
 ```typescript
 // tests/integration/api.test.ts
 describe('API Integration', () => {
   let app: Application;
   let authToken: string;
-  
+
   beforeAll(async () => {
     app = await createTestApp();
     authToken = await getTestAuthToken();
   });
-  
+
   describe('POST /api/events', () => {
     it('should create event with AI parsing', async () => {
       const response = await request(app)
@@ -793,9 +861,9 @@ describe('API Integration', () => {
         .set('Authorization', `Bearer ${authToken}`)
         .send({
           input: '내일 오후 3시에 회의',
-          currentDate: '2024-01-15T09:00:00Z'
+          currentDate: '2024-01-15T09:00:00Z',
         });
-      
+
       expect(response.status).toBe(200);
       expect(response.body.parsedEvent.title).toContain('회의');
     });
@@ -808,6 +876,7 @@ describe('API Integration', () => {
 ## 12. 모니터링 및 로깅
 
 ### 12.1 로깅 설정
+
 ```typescript
 // src/config/logger.config.ts
 export const logger = winston.createLogger({
@@ -822,39 +891,44 @@ export const logger = winston.createLogger({
     new winston.transports.File({ filename: 'logs/error.log', level: 'error' }),
     new winston.transports.File({ filename: 'logs/combined.log' }),
     new winston.transports.Console({
-      format: winston.format.simple()
-    })
-  ]
+      format: winston.format.simple(),
+    }),
+  ],
 });
 ```
 
 ### 12.2 성능 모니터링
+
 ```typescript
 // src/middleware/monitoring.middleware.ts
-export const performanceMonitoring = (req: Request, res: Response, next: NextFunction) => {
+export const performanceMonitoring = (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
   const start = Date.now();
-  
+
   res.on('finish', () => {
     const duration = Date.now() - start;
-    
+
     logger.info('API Performance', {
       method: req.method,
       url: req.url,
       statusCode: res.statusCode,
       duration,
-      userId: req.user?.id
+      userId: req.user?.id,
     });
-    
+
     // 느린 응답 알림
     if (duration > 5000) {
       logger.warn('Slow API Response', {
         method: req.method,
         url: req.url,
-        duration
+        duration,
       });
     }
   });
-  
+
   next();
 };
 ```
@@ -864,6 +938,7 @@ export const performanceMonitoring = (req: Request, res: Response, next: NextFun
 ## 13. 배포 설정
 
 ### 13.1 Docker 설정
+
 ```dockerfile
 # Dockerfile
 FROM node:18-alpine
@@ -882,6 +957,7 @@ CMD ["npm", "start"]
 ```
 
 ### 13.2 Docker Compose
+
 ```yaml
 # docker-compose.yml
 version: '3.8'
@@ -889,7 +965,7 @@ services:
   app:
     build: .
     ports:
-      - "3000:3000"
+      - '3000:3000'
     environment:
       - NODE_ENV=production
       - DATABASE_URL=${DATABASE_URL}
@@ -898,25 +974,25 @@ services:
       - mongodb
       - redis
       - ai-service
-  
+
   ai-service:
     build: ./ai-service
     ports:
-      - "8000:8000"
+      - '8000:8000'
     environment:
       - OPENAI_API_KEY=${OPENAI_API_KEY}
-  
+
   mongodb:
     image: mongo:6.0
     ports:
-      - "27017:27017"
+      - '27017:27017'
     volumes:
       - mongodb_data:/data/db
-  
+
   redis:
     image: redis:7-alpine
     ports:
-      - "6379:6379"
+      - '6379:6379'
 
 volumes:
   mongodb_data:
@@ -924,4 +1000,6 @@ volumes:
 
 ---
 
-이 문서는 LinQ 백엔드 개발의 완전한 가이드라인을 제공합니다. AI가 이 문서만으로 전체 백엔드 시스템을 구현할 수 있도록 상세한 코드 예시와 구현 방법을 포함했습니다.
+이 문서는 LinQ 백엔드 개발의 완전한 가이드라인을 제공합니다. AI가 이 문서만으로
+전체 백엔드 시스템을 구현할 수 있도록 상세한 코드 예시와 구현 방법을
+포함했습니다.

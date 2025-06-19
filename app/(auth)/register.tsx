@@ -1,9 +1,11 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, StatusBar } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useTheme } from '../../src/contexts/ThemeContext';
 
 export default function RegisterScreen() {
   const router = useRouter();
+  const { theme } = useTheme();
 
   const handleRegister = () => {
     // 임시로 탭 화면으로 이동
@@ -11,23 +13,32 @@ export default function RegisterScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background.primary }]}>
+      <StatusBar
+        barStyle={theme.isDark ? 'light-content' : 'dark-content'}
+        backgroundColor={theme.colors.background.primary}
+      />
+
       <View style={styles.content}>
-        <Text style={styles.title}>회원가입</Text>
-        <Text style={styles.subtitle}>LinQ와 함께 스마트한 일정 관리를 시작하세요</Text>
+        <Text style={[styles.title, { color: theme.colors.text.primary }]}>회원가입</Text>
+        <Text style={[styles.subtitle, { color: theme.colors.text.secondary }]}>
+          LinQ와 함께 스마트한 일정 관리를 시작하세요
+        </Text>
       </View>
-      
-      <TouchableOpacity style={styles.button} onPress={handleRegister}>
-        <Text style={styles.buttonText}>회원가입</Text>
+
+      <TouchableOpacity
+        style={[styles.button, { backgroundColor: theme.colors.primary[500] }]}
+        onPress={handleRegister}
+      >
+        <Text style={[styles.buttonText, { color: theme.colors.text.inverse }]}>회원가입</Text>
       </TouchableOpacity>
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#ffffff',
     paddingHorizontal: 24,
     paddingVertical: 60,
     justifyContent: 'space-between',
@@ -40,24 +51,20 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 32,
     fontWeight: 'bold',
-    color: '#111827',
     marginBottom: 16,
   },
   subtitle: {
     fontSize: 16,
-    color: '#6B7280',
     textAlign: 'center',
   },
   button: {
-    backgroundColor: '#3B82F6',
     paddingVertical: 16,
     paddingHorizontal: 32,
     borderRadius: 12,
     alignItems: 'center',
   },
   buttonText: {
-    color: '#ffffff',
     fontSize: 18,
     fontWeight: '600',
   },
-}); 
+});

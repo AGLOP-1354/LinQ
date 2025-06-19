@@ -39,22 +39,26 @@ export interface BehaviorPattern {
 export interface Event {
   id: string;
   title: string;
+  startDate: Date;
+  endDate: Date;
+  isAllDay: boolean;
+  color: string;
+  location?: string;
+  notifications: string[];
+  category: 'work' | 'health' | 'social' | 'personal';
+  isCompleted?: boolean; // 완료 상태 추가
   description?: string;
-  startTime: Date;
-  endTime: Date;
-  priority: Priority;
-  status: EventStatus;
-  category: EventCategory;
-  location?: Location;
+  priority?: Priority;
+  status?: EventStatus;
   participants?: Participant[];
-  isRecurring: boolean;
+  isRecurring?: boolean;
   recurringPattern?: RecurringPattern;
-  reminders: Reminder[];
-  aiGenerated: boolean;
+  reminders?: Reminder[];
+  aiGenerated?: boolean;
   aiPriorityInfo?: AIPriorityInfo;
-  metadata: EventMetadata;
-  createdAt: Date;
-  updatedAt: Date;
+  metadata?: EventMetadata;
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
 export type Priority = 'HIGH' | 'MEDIUM' | 'LOW';
@@ -244,16 +248,20 @@ export interface RegisterData {
 
 export interface EventFormData {
   title: string;
-  description?: string;
   startDate: Date;
-  startTime: string;
   endDate: Date;
-  endTime: string;
-  priority: Priority;
-  category: EventCategory;
+  isAllDay: boolean;
+  color: string;
   location?: string;
-  reminders: number[];
-  isRecurring: boolean;
+  notifications: string[];
+  category: 'work' | 'health' | 'social' | 'personal';
+  // 추가 필드들 (호환성 유지)
+  description?: string;
+  startTime?: string;
+  endTime?: string;
+  priority?: Priority;
+  reminders?: number[];
+  isRecurring?: boolean;
   recurringPattern?: Partial<RecurringPattern>;
 }
 
@@ -306,4 +314,4 @@ export interface AIState {
   sendMessage: (message: string) => Promise<void>;
   acceptSuggestion: (suggestionId: string) => Promise<void>;
   clearHistory: () => void;
-} 
+}

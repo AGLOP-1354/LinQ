@@ -9,7 +9,16 @@ import {
   TouchableWithoutFeedback,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors, Spacing, BorderRadius, Shadows, Typography, Animations } from '../../constants/design';
+import * as Haptics from 'expo-haptics';
+import { useTheme } from '../../contexts/ThemeContext';
+import {
+  Colors,
+  Spacing,
+  BorderRadius,
+  Shadows,
+  Typography,
+  Animations,
+} from '../../constants/design';
 
 const { width } = Dimensions.get('window');
 
@@ -32,10 +41,11 @@ const FloatingActionMenu: React.FC<FloatingActionMenuProps> = ({
   onManualSchedule,
   onVoiceInput,
 }) => {
+  const { theme } = useTheme();
   const [isOpen, setIsOpen] = useState(false);
   const scaleAnim = useRef(new Animated.Value(0)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
-  
+
   // 개별 버튼 애니메이션
   const buttonAnims = useRef([
     new Animated.Value(0),
@@ -57,31 +67,32 @@ const FloatingActionMenu: React.FC<FloatingActionMenuProps> = ({
       id: 'manual',
       title: '수기 등록',
       icon: 'create-outline',
-      color: Colors.primary[500],
+      color: theme.colors.primary[500],
       onPress: onManualSchedule,
     },
     {
       id: 'voice',
       title: '음성 입력',
       icon: 'mic',
-      color: Colors.error,
+      color: theme.colors.error,
       onPress: onVoiceInput,
     },
   ];
 
-  // 3개 버튼 배치: 충분한 간격으로 겹침 방지
+  // 3개 버튼 배치: 더 자연스러운 호형 배치
   const getPositionForIndex = (index: number) => {
     const positions = [
-      { x: -70, y: -20 }, // 좌측
-      { x: 0, y: -40 },   // 위
-      { x: 70, y: -20 },  // 우측
+      { x: -80, y: -30 }, // 좌측
+      { x: 0, y: -50 }, // 위 (더 높이)
+      { x: 80, y: -30 }, // 우측
     ];
     return positions[index] || { x: 0, y: 0 };
   };
 
   const toggleMenu = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     const toValue = isOpen ? 0 : 1;
-    
+
     if (isOpen) {
       // 닫기 애니메이션 - 더 빠르게
       Animated.parallel([
@@ -111,23 +122,24 @@ const FloatingActionMenu: React.FC<FloatingActionMenuProps> = ({
           duration: 200,
           useNativeDriver: true,
         }),
-        Animated.stagger(80, [
+        Animated.stagger(60, [
           ...buttonAnims.map(anim =>
             Animated.spring(anim, {
               toValue: 1,
-              friction: 8,
-              tension: 80,
+              friction: 6,
+              tension: 120,
               useNativeDriver: true,
             })
           ),
         ]),
       ]).start();
     }
-    
+
     setIsOpen(!isOpen);
   };
 
   const handleActionPress = (action: QuickAction) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     // 메뉴 닫기 애니메이션 먼저 실행
     Animated.parallel([
       Animated.timing(scaleAnim, {
@@ -152,10 +164,6 @@ const FloatingActionMenu: React.FC<FloatingActionMenuProps> = ({
       action.onPress();
     });
   };
-
-
-
-
 
   return (
     <>
@@ -195,56 +203,62 @@ const FloatingActionMenu: React.FC<FloatingActionMenuProps> = ({
                 ]}
               >
                 <TouchableOpacity
-                  style={styles.actionButtonInner}
-                  onPress={() => handleActionPress(action)}
-                  activeOpacity={0.7}
-                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                >
-                  <View style={[styles.iconContainer, { backgroundColor: action.color }]}>
-                    <Ionicons name={action.icon} size={18} color={Colors.text.inverse} />
-                  </View>
-                </TouchableOpacity>
-                
-                {/* 라벨 */}
-                <Animated.View
                   style={[
-                    styles.actionLabel,
+                    styles.actionButtonInner,
                     {
-                      opacity: buttonAnims[index].interpolate({
-                        inputRange: [0, 1],
-                        outputRange: [0, 1],
-                      }),
-                      transform: [
-                        {
-                          scale: buttonAnims[index],
-                        },
-                      ],
+                      backgroundColor: theme.colors.background.card,
+                      shadowColor: theme.colors.shadow,
                     },
                   ]}
+                  onPress={() => handleActionPress(action)}
+                  activeOpacity={0.8}
                 >
-                  <Text style={styles.actionLabelText}>{action.title}</Text>
-                </Animated.View>
+                  <Ionicons name={action.icon} size={20} color={action.color} />
+                </TouchableOpacity>
+
+                {/* 액션 라벨 */}
+                <View
+                  style={[styles.actionLabel, { backgroundColor: theme.colors.background.card }]}
+                >
+                  <Text style={[styles.actionLabelText, { color: theme.colors.text.primary }]}>
+                    {action.title}
+                  </Text>
+                </View>
               </Animated.View>
             );
           })}
         </View>
       )}
 
-      {/* 메인 + 버튼 */}
-      <TouchableOpacity 
-        style={styles.mainButton} 
-        onPress={toggleMenu} 
-        activeOpacity={0.7}
-        hitSlop={{ top: 5, bottom: 5, left: 5, right: 5 }}
-      >
-        <Animated.View
+      {/* 메인 FAB */}
+      <View style={styles.fabContainer}>
+        <TouchableOpacity
           style={[
-            styles.mainButtonInner,
+            styles.fab,
+            {
+              backgroundColor: theme.colors.primary[500],
+              shadowColor: theme.colors.shadow,
+            },
           ]}
+          onPress={toggleMenu}
+          activeOpacity={0.9}
         >
-          <Ionicons name={isOpen ? "close" : "add"} size={24} color="#FFFFFF" />
-        </Animated.View>
-      </TouchableOpacity>
+          <Animated.View
+            style={{
+              transform: [
+                {
+                  rotate: opacityAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: ['0deg', '45deg'],
+                  }),
+                },
+              ],
+            }}
+          >
+            <Ionicons name={isOpen ? 'add' : 'close'} size={28} color={theme.colors.text.inverse} />
+          </Animated.View>
+        </TouchableOpacity>
+      </View>
     </>
   );
 };
@@ -253,73 +267,76 @@ const styles = StyleSheet.create({
   actionContainer: {
     position: 'absolute',
     bottom: 85,
-    left: width / 2,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 999,
+  },
+  actionButton: {
+    position: 'absolute',
+    alignItems: 'center',
+  },
+  actionButtonInner: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+    elevation: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  actionLabel: {
+    marginTop: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+    shadowOffset: {
+      width: 0,
+      height: 3,
+    },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    elevation: 4,
+    borderWidth: 0.5,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  actionLabelText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  fabContainer: {
+    position: 'absolute',
+    bottom: 25,
+    left: 0,
+    right: 0,
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 1000,
   },
-  actionButton: {
-    alignItems: 'center',
-    position: 'absolute',
-    bottom: 0,
-  },
-  actionButtonInner: {
-    width: 52,
-    height: 52,
-    borderRadius: BorderRadius.full,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: Colors.background.primary,
-    borderWidth: 1,
-    borderColor: Colors.gray[200],
-    ...Shadows.md,
-  },
-  iconContainer: {
-    width: 36,
-    height: 36,
-    borderRadius: BorderRadius.full,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  actionLabel: {
-    backgroundColor: Colors.gray[800],
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: Spacing.xs,
-    borderRadius: BorderRadius.md,
-    minWidth: 60,
-    alignItems: 'center',
-    ...Shadows.sm,
-    borderWidth: 0,
-    position: 'absolute',
-    top: -38,
-  },
-  actionLabelText: {
-    color: Colors.text.inverse,
-    fontSize: Typography.fontSize.xs,
-    fontWeight: '600',
-    textAlign: 'center',
-  },
-  mainButton: {
+  fab: {
     width: 56,
     height: 56,
-    borderRadius: BorderRadius.full,
+    borderRadius: 28,
     justifyContent: 'center',
     alignItems: 'center',
-    position: 'absolute',
-    bottom: 17,
-    left: width / 2 - 28,
-    zIndex: 1001,
-  },
-  mainButtonInner: {
-    width: 56,
-    height: 56,
-    borderRadius: BorderRadius.full,
-    backgroundColor: Colors.primary[500],
-    justifyContent: 'center',
-    alignItems: 'center',
-    ...Shadows.lg,
-    borderWidth: 0,
+    shadowOffset: {
+      width: 0,
+      height: 8,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
+    elevation: 12,
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
   },
 });
 
-export default FloatingActionMenu; 
+export default FloatingActionMenu;

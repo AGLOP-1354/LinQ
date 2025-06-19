@@ -3,6 +3,7 @@
 ## 1. 데이터베이스 아키텍처 개요
 
 ### 1.1 멀티 데이터베이스 전략
+
 ```
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
 │    MongoDB      │    │     Redis       │    │  Vector DB      │
@@ -16,6 +17,7 @@
 ```
 
 ### 1.2 데이터 플로우
+
 ```
 Frontend Request → Redis Cache → MongoDB → Vector DB → AI Analysis
                       ↓              ↓           ↓
@@ -28,6 +30,7 @@ Frontend Request → Redis Cache → MongoDB → Vector DB → AI Analysis
 ## 2. MongoDB 스키마 설계
 
 ### 2.1 사용자 컬렉션 (users)
+
 ```javascript
 {
   _id: ObjectId("..."),
@@ -120,13 +123,14 @@ Frontend Request → Redis Cache → MongoDB → Vector DB → AI Analysis
 ```
 
 ### 2.2 이벤트 컬렉션 (events)
+
 ```javascript
 {
   _id: ObjectId("..."),
   user_id: ObjectId("..."),            // 외래키, 인덱스
   title: "프로젝트 회의",
   description: "Q1 계획 검토 및 리소스 배정 논의",
-  
+
   // 시간 정보
   timing: {
     start_time: ISODate("2024-01-15T14:00:00Z"),
@@ -140,7 +144,7 @@ Frontend Request → Redis Cache → MongoDB → Vector DB → AI Analysis
       after: 10
     }
   },
-  
+
   // 위치 정보
   location: {
     type: "physical",                  // physical, virtual, hybrid
@@ -160,7 +164,7 @@ Frontend Request → Redis Cache → MongoDB → Vector DB → AI Analysis
       password: "encrypted_password"
     }
   },
-  
+
   // 분류 및 우선순위
   categorization: {
     category: "work",                  // work, personal, health, social, travel
@@ -175,7 +179,7 @@ Frontend Request → Redis Cache → MongoDB → Vector DB → AI Analysis
     tags: ["프로젝트", "Q1", "회의"],
     project_id: ObjectId("..."),       // 프로젝트 연결 (선택적)
   },
-  
+
   // 상태 정보
   status: {
     current: "scheduled",              // scheduled, in_progress, completed, cancelled, postponed
@@ -184,7 +188,7 @@ Frontend Request → Redis Cache → MongoDB → Vector DB → AI Analysis
     satisfaction_rating: 4,            // 1-5 (만족도)
     notes: "생산적인 회의였음"
   },
-  
+
   // 반복 설정
   recurrence: {
     enabled: true,
@@ -199,7 +203,7 @@ Frontend Request → Redis Cache → MongoDB → Vector DB → AI Analysis
       ISODate("2024-01-22T14:00:00Z")
     ]
   },
-  
+
   // 참여자 정보
   participants: [
     {
@@ -210,7 +214,7 @@ Frontend Request → Redis Cache → MongoDB → Vector DB → AI Analysis
       notes: "자료 준비 완료"
     }
   ],
-  
+
   // 알림 설정
   reminders: [
     {
@@ -222,7 +226,7 @@ Frontend Request → Redis Cache → MongoDB → Vector DB → AI Analysis
       sent_at: ISODate("...")
     }
   ],
-  
+
   // AI 관련 정보
   ai_metadata: {
     generated_by_ai: true,
@@ -243,7 +247,7 @@ Frontend Request → Redis Cache → MongoDB → Vector DB → AI Analysis
       location_accuracy: true
     }
   },
-  
+
   // 연결된 데이터
   attachments: [
     {
@@ -254,7 +258,7 @@ Frontend Request → Redis Cache → MongoDB → Vector DB → AI Analysis
       mime_type: "application/pdf"
     }
   ],
-  
+
   // 충돌 및 최적화
   conflicts: [
     {
@@ -266,7 +270,7 @@ Frontend Request → Redis Cache → MongoDB → Vector DB → AI Analysis
       resolved_at: null
     }
   ],
-  
+
   // 메타데이터
   metadata: {
     created_by: "user",                // user, ai, sync, import
@@ -281,19 +285,20 @@ Frontend Request → Redis Cache → MongoDB → Vector DB → AI Analysis
       }
     }
   },
-  
+
   created_at: ISODate("..."),
   updated_at: ISODate("...")
 }
 ```
 
 ### 2.3 AI 채팅 컬렉션 (chat_messages)
+
 ```javascript
 {
   _id: ObjectId("..."),
   user_id: ObjectId("..."),
   conversation_id: ObjectId("..."),     // 대화 세션 그룹핑
-  
+
   message: {
     content: "내일 오후 3시에 치과 예약 잡아줘",
     role: "user",                      // user, assistant, system
@@ -301,14 +306,14 @@ Frontend Request → Redis Cache → MongoDB → Vector DB → AI Analysis
     language: "ko",
     input_method: "text"               // text, voice, quick_action
   },
-  
+
   // AI 처리 결과
   ai_processing: {
     intent: "create_event",            // create_event, modify_event, query_schedule, general_chat
     confidence: 0.95,
     processing_time: 1.2,              // 초 단위
     model_version: "gpt-4-1106",
-    
+
     extracted_entities: [
       {
         type: "datetime",
@@ -329,14 +334,14 @@ Frontend Request → Redis Cache → MongoDB → Vector DB → AI Analysis
         confidence: 0.99
       }
     ],
-    
+
     context_used: {
       recent_events: ["event_id_1", "event_id_2"],
       user_preferences: ["medical_appointments_30min"],
       location_history: ["dental_clinic_gangnam"]
     }
   },
-  
+
   // 응답 정보
   response: {
     content: "치과 예약을 1월 16일 오후 3시로 생성했습니다. 30분 전에 알림을 드릴게요.",
@@ -356,7 +361,7 @@ Frontend Request → Redis Cache → MongoDB → Vector DB → AI Analysis
       "다음 예약도 미리 잡을까요?"
     ]
   },
-  
+
   // 사용자 피드백
   feedback: {
     rating: 5,                         // 1-5
@@ -366,7 +371,7 @@ Frontend Request → Redis Cache → MongoDB → Vector DB → AI Analysis
     corrected_intent: null,
     timestamp: ISODate("...")
   },
-  
+
   // 학습 데이터
   learning_data: {
     user_behavior_pattern: "quick_acceptance",  // quick_acceptance, modification_required, rejection
@@ -374,18 +379,19 @@ Frontend Request → Redis Cache → MongoDB → Vector DB → AI Analysis
     error_type: null,                  // parsing_error, context_error, intent_error
     improvement_area: null
   },
-  
+
   created_at: ISODate("...")
 }
 ```
 
 ### 2.4 알림 컬렉션 (notifications)
+
 ```javascript
 {
   _id: ObjectId("..."),
   user_id: ObjectId("..."),
   related_event_id: ObjectId("..."),   // 관련 이벤트 (선택적)
-  
+
   // 알림 내용
   content: {
     title: "회의 15분 전입니다",
@@ -403,7 +409,7 @@ Frontend Request → Redis Cache → MongoDB → Vector DB → AI Analysis
       ]
     }
   },
-  
+
   // 알림 타입 및 설정
   notification_type: {
     category: "event_reminder",        // event_reminder, ai_suggestion, conflict_alert, daily_summary
@@ -412,7 +418,7 @@ Frontend Request → Redis Cache → MongoDB → Vector DB → AI Analysis
     channel: ["push", "email"],        // push, email, sms, in_app
     personalized: true                 // AI 개인화 적용 여부
   },
-  
+
   // 스케줄링 정보
   scheduling: {
     created_at: ISODate("..."),
@@ -425,7 +431,7 @@ Frontend Request → Redis Cache → MongoDB → Vector DB → AI Analysis
       max_advance_notice: 60           // 최대 사전 알림 시간 (분)
     }
   },
-  
+
   // 전송 상태
   delivery: {
     status: "delivered",               // pending, sent, delivered, failed, expired
@@ -445,7 +451,7 @@ Frontend Request → Redis Cache → MongoDB → Vector DB → AI Analysis
       response_time: 15                // 초 단위
     }
   },
-  
+
   // AI 최적화 데이터
   ai_optimization: {
     send_time_reasoning: "사용자가 보통 이 시간에 알림을 확인함",
@@ -461,19 +467,20 @@ Frontend Request → Redis Cache → MongoDB → Vector DB → AI Analysis
       content_relevance: true
     }
   },
-  
+
   created_at: ISODate("..."),
   updated_at: ISODate("...")
 }
 ```
 
 ### 2.5 사용자 분석 컬렉션 (user_analytics)
+
 ```javascript
 {
   _id: ObjectId("..."),
   user_id: ObjectId("..."),
   date: ISODate("2024-01-15T00:00:00Z"), // 날짜별 집계
-  
+
   // 일정 통계
   event_statistics: {
     total_events: 8,
@@ -481,19 +488,19 @@ Frontend Request → Redis Cache → MongoDB → Vector DB → AI Analysis
     cancelled_events: 1,
     postponed_events: 1,
     completion_rate: 0.75,
-    
+
     by_category: {
       work: { total: 5, completed: 4, completion_rate: 0.8 },
       personal: { total: 2, completed: 2, completion_rate: 1.0 },
       health: { total: 1, completed: 0, completion_rate: 0.0 }
     },
-    
+
     by_priority: {
       high: { total: 2, completed: 2, completion_rate: 1.0 },
       medium: { total: 4, completed: 3, completion_rate: 0.75 },
       low: { total: 2, completed: 1, completion_rate: 0.5 }
     },
-    
+
     ai_priority_accuracy: {
       correct_predictions: 87,          // AI가 올바르게 예측한 중요도 개수
       total_predictions: 100,           // 전체 AI 예측 개수
@@ -501,23 +508,23 @@ Frontend Request → Redis Cache → MongoDB → Vector DB → AI Analysis
       user_overrides: 13                // 사용자가 수정한 횟수
     }
   },
-  
+
   // 시간 분석
   time_analysis: {
     total_scheduled_time: 480,         // 분 단위
     actual_productive_time: 420,       // 분 단위
     efficiency_ratio: 0.875,           // 실제 시간 / 예정 시간
-    
+
     time_distribution: {
       work: 300,                       // 분 단위
       personal: 60,
       health: 30,
       social: 30
     },
-    
+
     peak_productivity_hours: ["09:00-11:00", "14:00-16:00"],
     low_energy_periods: ["13:00-14:00", "16:00-17:00"],
-    
+
     meeting_statistics: {
       total_meetings: 3,
       average_duration: 65,            // 분
@@ -525,7 +532,7 @@ Frontend Request → Redis Cache → MongoDB → Vector DB → AI Analysis
       satisfaction_avg: 3.7            // 1-5
     }
   },
-  
+
   // 패턴 분석
   behavioral_patterns: {
     punctuality: {
@@ -533,46 +540,46 @@ Frontend Request → Redis Cache → MongoDB → Vector DB → AI Analysis
       average_delay: 5,                // 분
       early_arrival_rate: 0.3
     },
-    
+
     planning_behavior: {
       advance_planning_days: 3.5,      // 평균 사전 계획 일수
       last_minute_changes: 2,          // 당일 변경 횟수
       schedule_density: 0.7            // 시간 대비 일정 밀도
     },
-    
+
     energy_management: {
       high_energy_utilization: 0.8,   // 고에너지 시간 활용도
       break_frequency: 4,              // 휴식 횟수
       focus_session_avg: 90            // 평균 집중 시간 (분)
     }
   },
-  
+
   // AI 상호작용 분석
   ai_interaction: {
     total_queries: 12,
     successful_predictions: 10,
     accuracy_rate: 0.83,
-    
+
     interaction_types: {
       event_creation: 6,
       schedule_query: 3,
       optimization_request: 2,
       general_assistance: 1
     },
-    
+
     user_satisfaction: {
       average_rating: 4.2,             // 1-5
       suggestion_acceptance_rate: 0.75,
       correction_frequency: 0.15
     },
-    
+
     learning_progress: {
       personalization_level: 0.8,     // 0-1
       preference_accuracy: 0.9,       // 0-1
       context_understanding: 0.85     // 0-1
     }
   },
-  
+
   // 목표 추적
   goal_tracking: {
     weekly_targets: {
@@ -580,13 +587,13 @@ Frontend Request → Redis Cache → MongoDB → Vector DB → AI Analysis
       actual_work_hours: 35,
       target_achievement: 0.875
     },
-    
+
     productivity_goals: {
       meeting_efficiency_target: 0.8,
       actual_efficiency: 0.875,
       improvement_rate: 0.1            // 전주 대비
     },
-    
+
     wellness_goals: {
       break_frequency_target: 6,
       actual_breaks: 4,
@@ -594,7 +601,7 @@ Frontend Request → Redis Cache → MongoDB → Vector DB → AI Analysis
       actual_exercise: 30
     }
   },
-  
+
   // 인사이트 및 추천
   insights: {
     key_findings: [
@@ -602,7 +609,7 @@ Frontend Request → Redis Cache → MongoDB → Vector DB → AI Analysis
       "회의 시간이 자주 초과됨",
       "건강 관련 일정 완료율이 낮음"
     ],
-    
+
     recommendations: [
       {
         type: "schedule_optimization",
@@ -617,14 +624,14 @@ Frontend Request → Redis Cache → MongoDB → Vector DB → AI Analysis
         expected_improvement: 0.1
       }
     ],
-    
+
     trend_analysis: {
       productivity_trend: "increasing",  // increasing, decreasing, stable
       stress_level_trend: "stable",
       work_life_balance: 0.7            // 0-1
     }
   },
-  
+
   created_at: ISODate("..."),
   computed_at: ISODate("...")
 }
@@ -635,57 +642,79 @@ Frontend Request → Redis Cache → MongoDB → Vector DB → AI Analysis
 ## 3. 인덱스 설계
 
 ### 3.1 성능 최적화 인덱스
+
 ```javascript
 // Users 컬렉션
-db.users.createIndex({ "email": 1 }, { unique: true })
-db.users.createIndex({ "device_tokens.token": 1 })
-db.users.createIndex({ "external_integrations.google_calendar.enabled": 1 })
-db.users.createIndex({ "subscription.plan": 1, "subscription.expires_at": 1 })
+db.users.createIndex({ email: 1 }, { unique: true });
+db.users.createIndex({ 'device_tokens.token': 1 });
+db.users.createIndex({ 'external_integrations.google_calendar.enabled': 1 });
+db.users.createIndex({ 'subscription.plan': 1, 'subscription.expires_at': 1 });
 
 // Events 컬렉션 - 복합 인덱스 전략
-db.events.createIndex({ "user_id": 1, "timing.start_time": 1 })
-db.events.createIndex({ "user_id": 1, "status.current": 1, "timing.start_time": 1 })
-db.events.createIndex({ "user_id": 1, "categorization.category": 1, "timing.start_time": 1 })
-db.events.createIndex({ "timing.start_time": 1, "timing.end_time": 1 })  // 시간 범위 검색
-db.events.createIndex({ "ai_metadata.generated_by_ai": 1, "user_id": 1 })
-db.events.createIndex({ "location.coordinates": "2dsphere" })  // 지리 공간 인덱스
-db.events.createIndex({ "recurrence.enabled": 1, "recurrence.pattern": 1 })
+db.events.createIndex({ user_id: 1, 'timing.start_time': 1 });
+db.events.createIndex({
+  user_id: 1,
+  'status.current': 1,
+  'timing.start_time': 1,
+});
+db.events.createIndex({
+  user_id: 1,
+  'categorization.category': 1,
+  'timing.start_time': 1,
+});
+db.events.createIndex({ 'timing.start_time': 1, 'timing.end_time': 1 }); // 시간 범위 검색
+db.events.createIndex({ 'ai_metadata.generated_by_ai': 1, user_id: 1 });
+db.events.createIndex({ 'location.coordinates': '2dsphere' }); // 지리 공간 인덱스
+db.events.createIndex({ 'recurrence.enabled': 1, 'recurrence.pattern': 1 });
 
 // 텍스트 검색 인덱스
-db.events.createIndex({ 
-  "title": "text", 
-  "description": "text", 
-  "categorization.tags": "text" 
-}, { 
-  weights: { "title": 10, "description": 5, "categorization.tags": 1 } 
-})
+db.events.createIndex(
+  {
+    title: 'text',
+    description: 'text',
+    'categorization.tags': 'text',
+  },
+  {
+    weights: { title: 10, description: 5, 'categorization.tags': 1 },
+  }
+);
 
 // Chat Messages 컬렉션
-db.chat_messages.createIndex({ "user_id": 1, "message.timestamp": -1 })
-db.chat_messages.createIndex({ "conversation_id": 1, "message.timestamp": 1 })
-db.chat_messages.createIndex({ "ai_processing.intent": 1, "user_id": 1 })
-db.chat_messages.createIndex({ "feedback.rating": 1, "user_id": 1 })
+db.chat_messages.createIndex({ user_id: 1, 'message.timestamp': -1 });
+db.chat_messages.createIndex({ conversation_id: 1, 'message.timestamp': 1 });
+db.chat_messages.createIndex({ 'ai_processing.intent': 1, user_id: 1 });
+db.chat_messages.createIndex({ 'feedback.rating': 1, user_id: 1 });
 
 // Notifications 컬렉션
-db.notifications.createIndex({ "user_id": 1, "scheduling.scheduled_for": 1 })
-db.notifications.createIndex({ "delivery.status": 1, "scheduling.scheduled_for": 1 })
-db.notifications.createIndex({ "related_event_id": 1 })
+db.notifications.createIndex({ user_id: 1, 'scheduling.scheduled_for': 1 });
+db.notifications.createIndex({
+  'delivery.status': 1,
+  'scheduling.scheduled_for': 1,
+});
+db.notifications.createIndex({ related_event_id: 1 });
 
 // Analytics 컬렉션
-db.user_analytics.createIndex({ "user_id": 1, "date": -1 }, { unique: true })
-db.user_analytics.createIndex({ "date": -1 })  // 전체 통계용
+db.user_analytics.createIndex({ user_id: 1, date: -1 }, { unique: true });
+db.user_analytics.createIndex({ date: -1 }); // 전체 통계용
 ```
 
 ### 3.2 TTL 인덱스 (자동 데이터 정리)
+
 ```javascript
 // 만료된 알림 자동 삭제 (90일)
-db.notifications.createIndex({ "created_at": 1 }, { expireAfterSeconds: 7776000 })
+db.notifications.createIndex(
+  { created_at: 1 },
+  { expireAfterSeconds: 7776000 }
+);
 
 // 오래된 채팅 메시지 자동 삭제 (1년)
-db.chat_messages.createIndex({ "created_at": 1 }, { expireAfterSeconds: 31536000 })
+db.chat_messages.createIndex(
+  { created_at: 1 },
+  { expireAfterSeconds: 31536000 }
+);
 
 // 임시 세션 데이터 자동 삭제 (7일)
-db.temp_sessions.createIndex({ "created_at": 1 }, { expireAfterSeconds: 604800 })
+db.temp_sessions.createIndex({ created_at: 1 }, { expireAfterSeconds: 604800 });
 ```
 
 ---
@@ -693,6 +722,7 @@ db.temp_sessions.createIndex({ "created_at": 1 }, { expireAfterSeconds: 604800 }
 ## 4. Redis 캐시 전략
 
 ### 4.1 캐시 키 구조
+
 ```javascript
 // 사용자 세션
 "session:user:{user_id}" → 세션 데이터 (TTL: 24시간)
@@ -715,6 +745,7 @@ db.temp_sessions.createIndex({ "created_at": 1 }, { expireAfterSeconds: 604800 }
 ```
 
 ### 4.2 캐시 무효화 전략
+
 ```javascript
 // 이벤트 변경 시
 function invalidateEventCache(userId, eventId) {
@@ -722,9 +753,9 @@ function invalidateEventCache(userId, eventId) {
     `events:user:${userId}:*`,
     `event:detail:${eventId}`,
     `analytics:user:${userId}:*`,
-    `ai:suggestions:${userId}:*`
+    `ai:suggestions:${userId}:*`,
   ];
-  
+
   patterns.forEach(pattern => redis.del(pattern));
 }
 
@@ -733,9 +764,9 @@ function invalidateUserCache(userId) {
   const patterns = [
     `session:user:${userId}`,
     `ai:*:${userId}:*`,
-    `analytics:user:${userId}:*`
+    `analytics:user:${userId}:*`,
   ];
-  
+
   patterns.forEach(pattern => redis.del(pattern));
 }
 ```
@@ -745,6 +776,7 @@ function invalidateUserCache(userId) {
 ## 5. Vector Database 설계 (Pinecone)
 
 ### 5.1 벡터 인덱스 구조
+
 ```javascript
 // 이벤트 임베딩 인덱스
 {
@@ -804,6 +836,7 @@ function invalidateUserCache(userId) {
 ```
 
 ### 5.2 유사도 검색 쿼리
+
 ```javascript
 // 유사한 이벤트 찾기
 async function findSimilarEvents(eventEmbedding, userId, limit = 10) {
@@ -812,7 +845,7 @@ async function findSimilarEvents(eventEmbedding, userId, limit = 10) {
     filter: { user_id: userId },
     topK: limit,
     includeMetadata: true,
-    namespace: "events"
+    namespace: 'events',
   });
 }
 
@@ -823,7 +856,7 @@ async function findRelevantPatterns(queryEmbedding, userId) {
     filter: { user_id: userId },
     topK: 5,
     includeMetadata: true,
-    namespace: "user_patterns"
+    namespace: 'user_patterns',
   });
 }
 ```
@@ -833,21 +866,26 @@ async function findRelevantPatterns(queryEmbedding, userId) {
 ## 6. 샤딩 및 파티셔닝 전략
 
 ### 6.1 MongoDB 샤딩
+
 ```javascript
 // 사용자 기반 샤딩
-sh.enableSharding("linq_db")
+sh.enableSharding('linq_db');
 
 // Events 컬렉션 샤딩 (user_id 기반)
-sh.shardCollection("linq_db.events", { "user_id": 1, "timing.start_time": 1 })
+sh.shardCollection('linq_db.events', { user_id: 1, 'timing.start_time': 1 });
 
 // Analytics 컬렉션 샤딩 (user_id + date 기반)
-sh.shardCollection("linq_db.user_analytics", { "user_id": 1, "date": 1 })
+sh.shardCollection('linq_db.user_analytics', { user_id: 1, date: 1 });
 
 // Chat 메시지 샤딩 (user_id + timestamp 기반)
-sh.shardCollection("linq_db.chat_messages", { "user_id": 1, "message.timestamp": 1 })
+sh.shardCollection('linq_db.chat_messages', {
+  user_id: 1,
+  'message.timestamp': 1,
+});
 ```
 
 ### 6.2 시간 기반 파티셔닝
+
 ```javascript
 // 이벤트 아카이빙 전략
 {
@@ -870,42 +908,44 @@ sh.shardCollection("linq_db.chat_messages", { "user_id": 1, "message.timestamp":
 ## 7. 백업 및 복구 전략
 
 ### 7.1 백업 스케줄
+
 ```yaml
 # MongoDB 백업 설정
 mongodb_backup:
   full_backup:
-    schedule: "0 2 * * 0"  # 매주 일요일 2AM
-    retention: "4 weeks"
-    
+    schedule: '0 2 * * 0' # 매주 일요일 2AM
+    retention: '4 weeks'
+
   incremental_backup:
-    schedule: "0 2 * * 1-6"  # 매일 2AM (일요일 제외)
-    retention: "7 days"
-    
+    schedule: '0 2 * * 1-6' # 매일 2AM (일요일 제외)
+    retention: '7 days'
+
   point_in_time_recovery:
     enabled: true
-    retention: "72 hours"
+    retention: '72 hours'
 
 # Redis 백업
 redis_backup:
   rdb_snapshot:
-    schedule: "0 */6 * * *"  # 6시간마다
-    retention: "24 hours"
-    
+    schedule: '0 */6 * * *' # 6시간마다
+    retention: '24 hours'
+
   aof_rewrite:
     auto_aof_rewrite_percentage: 100
-    auto_aof_rewrite_min_size: "64mb"
+    auto_aof_rewrite_min_size: '64mb'
 ```
 
 ### 7.2 재해 복구 계획
+
 ```yaml
 disaster_recovery:
-  rto: "4 hours"     # Recovery Time Objective
-  rpo: "1 hour"      # Recovery Point Objective
-  
+  rto: '4 hours' # Recovery Time Objective
+  rpo: '1 hour' # Recovery Point Objective
+
   backup_locations:
-    primary: "AWS S3 Seoul"
-    secondary: "AWS S3 Tokyo"
-    
+    primary: 'AWS S3 Seoul'
+    secondary: 'AWS S3 Tokyo'
+
   recovery_procedures:
     - mongodb_restore
     - redis_restore
@@ -919,6 +959,7 @@ disaster_recovery:
 ## 8. 보안 설계
 
 ### 8.1 데이터 암호화
+
 ```javascript
 // 민감 데이터 필드 암호화
 {
@@ -929,13 +970,14 @@ disaster_recovery:
     "participants.email",
     "ai_metadata.original_input"  // 개인정보 포함 가능
   ],
-  
+
   encryption_method: "AES-256-GCM",
   key_rotation_period: "90 days"
 }
 ```
 
 ### 8.2 접근 제어
+
 ```javascript
 // MongoDB 사용자 권한
 {
@@ -950,7 +992,7 @@ disaster_recovery:
     },
     {
       user: "linq_analytics",
-      pwd: "encrypted_password", 
+      pwd: "encrypted_password",
       roles: [
         { role: "read", db: "linq_db" }
       ]
@@ -975,6 +1017,7 @@ disaster_recovery:
 ## 9. 모니터링 및 알림
 
 ### 9.1 성능 모니터링 메트릭
+
 ```yaml
 performance_monitoring:
   mongodb_metrics:
@@ -984,18 +1027,18 @@ performance_monitoring:
     - replication_lag
     - disk_usage
     - memory_usage
-    
+
   redis_metrics:
     - hit_ratio
     - memory_usage
     - connection_count
     - command_stats
-    
+
   vector_db_metrics:
     - query_latency
     - index_size
     - vector_count
-    
+
   alerts:
     - query_time > 1000ms
     - disk_usage > 80%
@@ -1004,32 +1047,35 @@ performance_monitoring:
 ```
 
 ### 9.2 데이터 품질 모니터링
+
 ```javascript
 // 데이터 무결성 검사
 {
   integrity_checks: [
     {
-      name: "orphaned_events",
-      query: "events without valid user_id",
-      schedule: "daily",
-      action: "alert_and_log"
+      name: 'orphaned_events',
+      query: 'events without valid user_id',
+      schedule: 'daily',
+      action: 'alert_and_log',
     },
     {
-      name: "duplicate_notifications", 
-      query: "duplicate notification entries",
-      schedule: "hourly",
-      action: "auto_cleanup"
+      name: 'duplicate_notifications',
+      query: 'duplicate notification entries',
+      schedule: 'hourly',
+      action: 'auto_cleanup',
     },
     {
-      name: "invalid_timestamps",
-      query: "events with end_time < start_time",
-      schedule: "real_time",
-      action: "immediate_alert"
-    }
-  ]
+      name: 'invalid_timestamps',
+      query: 'events with end_time < start_time',
+      schedule: 'real_time',
+      action: 'immediate_alert',
+    },
+  ];
 }
 ```
 
 ---
 
-이 데이터베이스 설계는 LinQ의 AI 기반 일정 관리 서비스의 모든 요구사항을 충족하도록 정밀하게 설계되었습니다. 확장성, 성능, 보안을 모두 고려한 엔터프라이즈급 아키텍처를 제공합니다.
+이 데이터베이스 설계는 LinQ의 AI 기반 일정 관리 서비스의 모든 요구사항을
+충족하도록 정밀하게 설계되었습니다. 확장성, 성능, 보안을 모두 고려한
+엔터프라이즈급 아키텍처를 제공합니다.
