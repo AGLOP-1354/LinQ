@@ -1,9 +1,10 @@
 // UI Components Export
-export { ThemeToggle } from './ThemeToggle';
-export { ProfileCard } from './ProfileCard';
-export { MenuCard } from './MenuCard';
-export { StatCard } from './StatCard';
+export { default as NaturalLanguageEventDrawer } from '../forms/NaturalLanguageEventDrawer';
 export { default as FloatingActionMenu } from './FloatingActionMenu';
+export { MenuCard } from './MenuCard';
+export { ProfileCard } from './ProfileCard';
+export { StatCard } from './StatCard';
+export { ThemeToggle } from './ThemeToggle';
 
 // Types
-export type { ThemeMode, Theme } from '../../contexts/ThemeContext';
+export type { Theme, ThemeMode } from '../../contexts/ThemeContext';

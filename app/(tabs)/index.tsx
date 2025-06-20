@@ -2,19 +2,21 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Animated,
-  Dimensions,
-  Modal,
-  Pressable,
-  SafeAreaView,
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    Animated,
+    Dimensions,
+    Modal,
+    Pressable,
+    SafeAreaView,
+    ScrollView,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 import AddEventModal from '../../src/components/forms/AddEventModal';
+import NaturalLanguageEventDrawer from '../../src/components/forms/NaturalLanguageEventDrawer';
+import FloatingActionMenu from '../../src/components/ui/FloatingActionMenu';
 import { useModal } from '../../src/contexts/ModalContext';
 import { useTheme } from '../../src/contexts/ThemeContext';
 
@@ -175,6 +177,7 @@ export default function HomeScreen() {
   const [selectedDayEvents, setSelectedDayEvents] = useState<Event[]>([]);
   const [viewType, setViewType] = useState<ViewType>('calendar');
   const [filterType, setFilterType] = useState<FilterType>('all');
+  const [isNaturalLanguageDrawerVisible, setIsNaturalLanguageDrawerVisible] = useState(false);
   const { isAddEventModalVisible, hideAddEventModal, showAddEventModal } = useModal();
   const { theme } = useTheme();
 
@@ -333,6 +336,45 @@ export default function HomeScreen() {
     setAllEvents(prev => [...prev, eventWithId]);
 
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  }, []);
+
+  // 자연어 드로어 관련 함수들
+  const handleOpenNaturalLanguageDrawer = useCallback(() => {
+    setIsNaturalLanguageDrawerVisible(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  }, []);
+
+  const handleCloseNaturalLanguageDrawer = useCallback(() => {
+    setIsNaturalLanguageDrawerVisible(false);
+  }, []);
+
+  const handleNaturalLanguageEventSave = useCallback((event: any) => {
+    const eventWithId = {
+      ...event,
+      id: Date.now().toString(),
+      // 호환성을 위한 추가 필드들
+      time: event.startDate.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }),
+      date: event.startDate.toISOString().split('T')[0],
+      priority: event.priority || 'MEDIUM' as const,
+      isCompleted: false,
+      // 자연어 파싱 결과에서 누락될 수 있는 필드들의 기본값
+      notifications: event.notifications || ['15_min'],
+      color: event.color || getCategoryColor(event.category || 'personal'),
+    };
+
+    setAllEvents(prev => [...prev, eventWithId]);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  }, [getCategoryColor]);
+
+  // FloatingActionMenu 핸들러들
+  const handleManualSchedule = useCallback(() => {
+    showAddEventModal();
+  }, [showAddEventModal]);
+
+  const handleVoiceInput = useCallback(() => {
+    // 음성 입력으로 자연어 드로어 열기
+    setIsNaturalLanguageDrawerVisible(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
   }, []);
 
   const toggleEventCompletion = useCallback((eventId: string) => {
@@ -1380,6 +1422,22 @@ export default function HomeScreen() {
         onClose={hideAddEventModal}
         onSave={handleAddEvent}
       />
+
+      {/* 자연어 기반 일정 등록 드로어 */}
+      <NaturalLanguageEventDrawer
+        visible={isNaturalLanguageDrawerVisible}
+        onClose={handleCloseNaturalLanguageDrawer}
+        onSave={handleNaturalLanguageEventSave}
+      />
+
+      {/* Floating Action Menu - 드로어가 열려있을 때는 숨김 */}
+      {!drawerVisible && !isNaturalLanguageDrawerVisible && (
+        <FloatingActionMenu
+          onAISchedule={handleOpenNaturalLanguageDrawer}
+          onManualSchedule={handleManualSchedule}
+          onVoiceInput={handleVoiceInput}
+        />
+      )}
     </SafeAreaView>
   );
 }
