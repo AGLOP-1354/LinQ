@@ -1,24 +1,26 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import {
-    Alert,
-    Dimensions,
-    RefreshControl,
-    SafeAreaView,
-    ScrollView,
-    StatusBar,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  Alert,
+  Dimensions,
+  RefreshControl,
+  SafeAreaView,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { MenuCard, ProfileCard, ThemeToggle } from '../../src/components/ui';
+import { useAuth } from '../../src/contexts/AuthContext';
 import { useTheme } from '../../src/contexts/ThemeContext';
 
 const { width } = Dimensions.get('window');
 
 export default function ProfileScreen() {
   const { theme } = useTheme();
+  const { user, logout } = useAuth();
   const [refreshing, setRefreshing] = useState(false);
 
   // 샘플 사용자 데이터
@@ -232,8 +234,13 @@ export default function ProfileScreen() {
       {
         text: '로그아웃',
         style: 'destructive',
-        onPress: () => {
-          Alert.alert('로그아웃 완료', '성공적으로 로그아웃되었습니다.');
+        onPress: async () => {
+          try {
+            await logout();
+            // AuthGuard에서 자동으로 로그인 페이지로 리다이렉트됨
+          } catch (error) {
+            Alert.alert('오류', '로그아웃 중 오류가 발생했습니다.', [{ text: '확인' }]);
+          }
         },
       },
     ]);
@@ -295,12 +302,12 @@ export default function ProfileScreen() {
         </View>
 
         {/* 빠른 액션 */}
-        <View style={[styles.quickActionsContainer, { backgroundColor: theme.colors.background.card }]}>
-          <Text style={[styles.sectionTitle, { color: theme.colors.text.primary }]}>
-            빠른 액션
-          </Text>
+        <View
+          style={[styles.quickActionsContainer, { backgroundColor: theme.colors.background.card }]}
+        >
+          <Text style={[styles.sectionTitle, { color: theme.colors.text.primary }]}>빠른 액션</Text>
           <View style={styles.quickActions}>
-            {quickActions.map((action) => (
+            {quickActions.map(action => (
               <TouchableOpacity
                 key={action.id}
                 style={[styles.quickAction, { backgroundColor: theme.colors.surface }]}
