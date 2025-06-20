@@ -1,15 +1,21 @@
+import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import {
-  View,
-  ScrollView,
-  StyleSheet,
-  StatusBar,
-  Alert,
-  SafeAreaView,
-  RefreshControl,
+    Alert,
+    Dimensions,
+    RefreshControl,
+    SafeAreaView,
+    ScrollView,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from 'react-native';
+import { MenuCard, ProfileCard, ThemeToggle } from '../../src/components/ui';
 import { useTheme } from '../../src/contexts/ThemeContext';
-import { ProfileCard, MenuCard, StatCard, ThemeToggle } from '../../src/components/ui';
+
+const { width } = Dimensions.get('window');
 
 export default function ProfileScreen() {
   const { theme } = useTheme();
@@ -19,54 +25,71 @@ export default function ProfileScreen() {
   const userData = {
     name: '김민수',
     email: 'kimminsu@example.com',
-    avatar: undefined, // 프로필 이미지가 없으면 이니셜로 표시
+    avatar: undefined,
+    memberSince: '2024년 1월',
+    planType: 'Premium',
   };
 
-  // 통계 데이터
-  const statsData = [
+  // 빠른 액션 버튼들
+  const quickActions = [
     {
-      id: 'events',
-      title: '완료한 일정',
-      value: 42,
-      icon: 'checkmark-circle' as const,
-      color: theme.colors.success,
-      change: { value: 12, type: 'increase' as const },
-    },
-    {
-      id: 'streak',
-      title: '연속 달성일',
-      value: 7,
-      icon: 'flame' as const,
-      color: theme.colors.warning,
-      change: { value: 2, type: 'increase' as const },
-    },
-    {
-      id: 'productivity',
-      title: '생산성 점수',
-      value: '92%',
-      icon: 'trending-up' as const,
+      id: 'analytics',
+      title: '분석 보기',
+      icon: 'analytics' as const,
       color: theme.colors.primary[500],
-      change: { value: 5, type: 'increase' as const },
+      onPress: () => handleAnalyticsView(),
     },
     {
-      id: 'time',
-      title: '절약한 시간',
-      value: '4.2h',
-      icon: 'time' as const,
+      id: 'backup',
+      title: '백업',
+      icon: 'cloud-upload' as const,
+      color: theme.colors.success,
+      onPress: () => handleBackup(),
+    },
+    {
+      id: 'share',
+      title: '공유',
+      icon: 'share' as const,
       color: theme.colors.info,
-      change: { value: 8, type: 'increase' as const },
+      onPress: () => handleShare(),
+    },
+    {
+      id: 'support',
+      title: '지원',
+      icon: 'help-circle' as const,
+      color: theme.colors.warning,
+      onPress: () => handleSupport(),
     },
   ];
 
-  // 계정 설정 메뉴
+  // 계정 관리 메뉴
   const accountMenuItems = [
     {
       id: 'edit-profile',
       title: '프로필 편집',
       icon: 'person-circle' as const,
-      description: '개인정보 및 설정 변경',
+      description: '개인정보 및 프로필 사진 변경',
       onPress: () => handleEditProfile(),
     },
+    {
+      id: 'account-security',
+      title: '계정 보안',
+      icon: 'shield-checkmark' as const,
+      description: '비밀번호 변경 및 2단계 인증',
+      onPress: () => handleAccountSecurity(),
+    },
+    {
+      id: 'subscription',
+      title: '구독 관리',
+      icon: 'card' as const,
+      description: 'Premium 플랜 관리',
+      value: userData.planType,
+      onPress: () => handleSubscription(),
+    },
+  ];
+
+  // 앱 설정 메뉴
+  const appMenuItems = [
     {
       id: 'notifications',
       title: '알림 설정',
@@ -75,17 +98,6 @@ export default function ProfileScreen() {
       value: '켜짐',
       onPress: () => handleNotificationSettings(),
     },
-    {
-      id: 'privacy',
-      title: '개인정보 보호',
-      icon: 'shield-checkmark' as const,
-      description: '데이터 보안 및 개인정보 설정',
-      onPress: () => handlePrivacySettings(),
-    },
-  ];
-
-  // 앱 설정 메뉴
-  const appMenuItems = [
     {
       id: 'theme',
       title: '다크 모드',
@@ -104,23 +116,23 @@ export default function ProfileScreen() {
     },
     {
       id: 'storage',
-      title: '저장소',
-      icon: 'cloud' as const,
-      description: '데이터 동기화 및 백업',
+      title: '저장소 관리',
+      icon: 'folder' as const,
+      description: '캐시 정리 및 저장 공간 관리',
       value: '2.4GB',
       onPress: () => handleStorageSettings(),
     },
-    {
-      id: 'help',
-      title: '도움말 및 지원',
-      icon: 'help-circle' as const,
-      description: '자주 묻는 질문 및 고객 지원',
-      onPress: () => handleHelp(),
-    },
   ];
 
-  // 기타 메뉴
-  const otherMenuItems = [
+  // 지원 및 정보 메뉴
+  const supportMenuItems = [
+    {
+      id: 'help',
+      title: '도움말 센터',
+      icon: 'help-circle' as const,
+      description: '자주 묻는 질문 및 가이드',
+      onPress: () => handleHelp(),
+    },
     {
       id: 'feedback',
       title: '피드백 보내기',
@@ -136,6 +148,17 @@ export default function ProfileScreen() {
       value: 'v1.0.0',
       onPress: () => handleAbout(),
     },
+  ];
+
+  // 계정 관련 메뉴
+  const accountActionsItems = [
+    {
+      id: 'export-data',
+      title: '데이터 내보내기',
+      icon: 'download' as const,
+      description: '개인 데이터 다운로드',
+      onPress: () => handleExportData(),
+    },
     {
       id: 'logout',
       title: '로그아웃',
@@ -147,16 +170,36 @@ export default function ProfileScreen() {
   ];
 
   // 이벤트 핸들러들
+  const handleAnalyticsView = () => {
+    Alert.alert('분석 페이지', '분석 탭으로 이동합니다.');
+  };
+
+  const handleBackup = () => {
+    Alert.alert('백업', '데이터 백업을 시작합니다.');
+  };
+
+  const handleShare = () => {
+    Alert.alert('공유', 'LinQ 앱을 친구들과 공유하세요!');
+  };
+
+  const handleSupport = () => {
+    Alert.alert('고객 지원', '고객 지원 센터로 연결합니다.');
+  };
+
   const handleEditProfile = () => {
     Alert.alert('프로필 편집', '프로필 편집 화면으로 이동합니다.');
   };
 
-  const handleNotificationSettings = () => {
-    Alert.alert('알림 설정', '알림 설정 화면으로 이동합니다.');
+  const handleAccountSecurity = () => {
+    Alert.alert('계정 보안', '보안 설정 화면으로 이동합니다.');
   };
 
-  const handlePrivacySettings = () => {
-    Alert.alert('개인정보 보호', '개인정보 보호 설정 화면으로 이동합니다.');
+  const handleSubscription = () => {
+    Alert.alert('구독 관리', '구독 관리 화면으로 이동합니다.');
+  };
+
+  const handleNotificationSettings = () => {
+    Alert.alert('알림 설정', '알림 설정 화면으로 이동합니다.');
   };
 
   const handleLanguageSettings = () => {
@@ -164,11 +207,11 @@ export default function ProfileScreen() {
   };
 
   const handleStorageSettings = () => {
-    Alert.alert('저장소 설정', '저장소 관리 화면으로 이동합니다.');
+    Alert.alert('저장소 관리', '저장소 관리 화면으로 이동합니다.');
   };
 
   const handleHelp = () => {
-    Alert.alert('도움말', '도움말 및 지원 화면으로 이동합니다.');
+    Alert.alert('도움말', '도움말 센터로 이동합니다.');
   };
 
   const handleFeedback = () => {
@@ -179,6 +222,10 @@ export default function ProfileScreen() {
     Alert.alert('앱 정보', 'LinQ v1.0.0\n\nAI 기반 스마트 일정 관리 서비스\n\n© 2024 LinQ Team');
   };
 
+  const handleExportData = () => {
+    Alert.alert('데이터 내보내기', '개인 데이터 내보내기를 시작합니다.');
+  };
+
   const handleLogout = () => {
     Alert.alert('로그아웃', '정말로 로그아웃하시겠습니까?', [
       { text: '취소', style: 'cancel' },
@@ -186,7 +233,6 @@ export default function ProfileScreen() {
         text: '로그아웃',
         style: 'destructive',
         onPress: () => {
-          // 실제 로그아웃 로직 구현
           Alert.alert('로그아웃 완료', '성공적으로 로그아웃되었습니다.');
         },
       },
@@ -195,10 +241,9 @@ export default function ProfileScreen() {
 
   const onRefresh = React.useCallback(() => {
     setRefreshing(true);
-    // 실제 데이터 새로고침 로직
     setTimeout(() => {
       setRefreshing(false);
-    }, 2000);
+    }, 1500);
   }, []);
 
   return (
@@ -220,25 +265,70 @@ export default function ProfileScreen() {
           />
         }
       >
-        {/* 프로필 카드 */}
-        <ProfileCard
-          name={userData.name}
-          email={userData.email}
-          avatar={userData.avatar}
-          onEditPress={handleEditProfile}
-        />
+        {/* 프로필 헤더 */}
+        <View style={styles.profileHeader}>
+          <ProfileCard
+            name={userData.name}
+            email={userData.email}
+            avatar={userData.avatar}
+            onEditPress={handleEditProfile}
+          />
 
-        {/* 통계 카드 */}
-        <StatCard title='이번 주 활동' stats={statsData} />
+          {/* 멤버십 정보 */}
+          <View style={[styles.membershipInfo, { backgroundColor: theme.colors.background.card }]}>
+            <View style={styles.membershipContent}>
+              <View>
+                <Text style={[styles.membershipTitle, { color: theme.colors.text.primary }]}>
+                  {userData.planType} 멤버
+                </Text>
+                <Text style={[styles.membershipDate, { color: theme.colors.text.secondary }]}>
+                  {userData.memberSince}부터
+                </Text>
+              </View>
+              <View style={[styles.planBadge, { backgroundColor: theme.colors.primary[500] }]}>
+                <Text style={[styles.planBadgeText, { color: theme.colors.text.inverse }]}>
+                  PRO
+                </Text>
+              </View>
+            </View>
+          </View>
+        </View>
 
-        {/* 계정 설정 */}
-        <MenuCard title='계정' items={accountMenuItems} />
+        {/* 빠른 액션 */}
+        <View style={[styles.quickActionsContainer, { backgroundColor: theme.colors.background.card }]}>
+          <Text style={[styles.sectionTitle, { color: theme.colors.text.primary }]}>
+            빠른 액션
+          </Text>
+          <View style={styles.quickActions}>
+            {quickActions.map((action) => (
+              <TouchableOpacity
+                key={action.id}
+                style={[styles.quickAction, { backgroundColor: theme.colors.surface }]}
+                onPress={action.onPress}
+                activeOpacity={0.7}
+              >
+                <View style={[styles.quickActionIcon, { backgroundColor: action.color + '15' }]}>
+                  <Ionicons name={action.icon} size={24} color={action.color} />
+                </View>
+                <Text style={[styles.quickActionText, { color: theme.colors.text.primary }]}>
+                  {action.title}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
+        {/* 계정 관리 */}
+        <MenuCard title='계정 관리' items={accountMenuItems} />
 
         {/* 앱 설정 */}
-        <MenuCard title='설정' items={appMenuItems} />
+        <MenuCard title='앱 설정' items={appMenuItems} />
 
-        {/* 기타 */}
-        <MenuCard title='기타' items={otherMenuItems} />
+        {/* 지원 및 정보 */}
+        <MenuCard title='지원 및 정보' items={supportMenuItems} />
+
+        {/* 계정 작업 */}
+        <MenuCard title='계정 작업' items={accountActionsItems} />
 
         {/* 하단 여백 */}
         <View style={styles.bottomSpacer} />
@@ -253,6 +343,89 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
+  },
+  profileHeader: {
+    marginBottom: 8,
+  },
+  membershipInfo: {
+    marginHorizontal: 16,
+    marginTop: -8,
+    borderRadius: 16,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  membershipContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  membershipTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 2,
+  },
+  membershipDate: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  planBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  planBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  quickActionsContainer: {
+    marginHorizontal: 16,
+    marginVertical: 8,
+    borderRadius: 16,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 16,
+  },
+  quickActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  quickAction: {
+    flex: 1,
+    alignItems: 'center',
+    marginHorizontal: 4,
+    padding: 16,
+    borderRadius: 12,
+  },
+  quickActionIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  quickActionText: {
+    fontSize: 12,
+    fontWeight: '500',
+    textAlign: 'center',
   },
   bottomSpacer: {
     height: 32,

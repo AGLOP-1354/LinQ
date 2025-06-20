@@ -1,6 +1,6 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, FlatList } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import React from 'react';
+import { FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useTheme } from '../../contexts/ThemeContext';
 
 interface MenuItem {
@@ -33,7 +33,7 @@ export const MenuCard: React.FC<MenuCardProps> = ({ title, items, style }) => {
           styles.menuItem,
           {
             borderBottomColor: theme.colors.divider,
-            borderBottomWidth: isLast ? 0 : 1,
+            borderBottomWidth: isLast ? 0 : 0.5,
           },
         ]}
         onPress={item.onPress}
@@ -46,10 +46,10 @@ export const MenuCard: React.FC<MenuCardProps> = ({ title, items, style }) => {
           <View
             style={[
               styles.iconContainer,
-              { backgroundColor: item.color || theme.colors.primary[50] },
+              { backgroundColor: item.color ? item.color + '15' : theme.colors.primary[50] },
             ]}
           >
-            <Ionicons name={item.icon} size={20} color={item.color || theme.colors.primary[500]} />
+            <Ionicons name={item.icon} size={22} color={item.color || theme.colors.primary[500]} />
           </View>
 
           <View style={styles.textContainer}>
@@ -77,7 +77,7 @@ export const MenuCard: React.FC<MenuCardProps> = ({ title, items, style }) => {
               {item.showArrow !== false && item.onPress && (
                 <Ionicons
                   name='chevron-forward'
-                  size={16}
+                  size={18}
                   color={theme.colors.text.tertiary}
                   style={styles.arrow}
                 />
@@ -107,7 +107,7 @@ export const MenuCard: React.FC<MenuCardProps> = ({ title, items, style }) => {
 const styles = StyleSheet.create({
   container: {
     borderRadius: 16,
-    marginHorizontal: 20,
+    marginHorizontal: 16,
     marginVertical: 8,
     paddingVertical: 16,
     shadowColor: '#000',
@@ -115,7 +115,7 @@ const styles = StyleSheet.create({
       width: 0,
       height: 2,
     },
-    shadowOpacity: 0.05,
+    shadowOpacity: 0.04,
     shadowRadius: 8,
     elevation: 3,
   },
@@ -124,6 +124,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginBottom: 16,
     marginHorizontal: 20,
+    letterSpacing: -0.3,
   },
   menuItem: {
     flexDirection: 'row',
@@ -131,7 +132,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: 16,
     paddingHorizontal: 20,
-    minHeight: 56,
+    minHeight: 64,
   },
   menuItemLeft: {
     flexDirection: 'row',
@@ -139,9 +140,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   iconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
+    width: 44,
+    height: 44,
+    borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 16,
@@ -151,12 +152,14 @@ const styles = StyleSheet.create({
   },
   menuTitle: {
     fontSize: 16,
-    fontWeight: '500',
-    marginBottom: 2,
+    fontWeight: '600',
+    marginBottom: 3,
+    letterSpacing: -0.2,
   },
   menuDescription: {
     fontSize: 14,
     fontWeight: '400',
+    lineHeight: 20,
   },
   menuItemRight: {
     flexDirection: 'row',
