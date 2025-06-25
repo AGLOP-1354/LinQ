@@ -1,22 +1,27 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-    Animated,
-    Dimensions,
-    Modal,
-    Pressable,
-    SafeAreaView,
-    ScrollView,
-    StatusBar,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  Dimensions,
+  Modal,
+  Pressable,
+  SafeAreaView,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
+import Animated, {
+  runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+  withTiming,
+} from 'react-native-reanimated';
 import AddEventModal from '../../src/components/forms/AddEventModal';
 import NaturalLanguageEventDrawer from '../../src/components/forms/NaturalLanguageEventDrawer';
-import FloatingActionMenu from '../../src/components/ui/FloatingActionMenu';
 import { useModal } from '../../src/contexts/ModalContext';
 import { useTheme } from '../../src/contexts/ThemeContext';
 
@@ -177,20 +182,35 @@ export default function HomeScreen() {
   const [selectedDayEvents, setSelectedDayEvents] = useState<Event[]>([]);
   const [viewType, setViewType] = useState<ViewType>('calendar');
   const [filterType, setFilterType] = useState<FilterType>('all');
-  const [isNaturalLanguageDrawerVisible, setIsNaturalLanguageDrawerVisible] = useState(false);
-  const { isAddEventModalVisible, hideAddEventModal, showAddEventModal } = useModal();
+  const {
+    isAddEventModalVisible,
+    hideAddEventModal,
+    showAddEventModal,
+    isNaturalLanguageDrawerVisible,
+    hideNaturalLanguageDrawer,
+    showNaturalLanguageDrawer,
+  } = useModal();
   const { theme } = useTheme();
 
-  const slideAnim = useRef(new Animated.Value(height)).current;
-  const overlayAnim = useRef(new Animated.Value(0)).current;
-  const scrollX = useRef(new Animated.Value(0)).current;
+  const slideAnim = useSharedValue(height);
+  const overlayAnim = useSharedValue(0);
+  const scrollX = useSharedValue(0);
+
+  // 애니메이션 스타일들
+  const drawerAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: slideAnim.value }],
+  }));
+
+  const overlayAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: overlayAnim.value,
+  }));
 
   // 컴포넌트 언마운트 시 애니메이션 정리
   useEffect(() => {
     return () => {
-      slideAnim.stopAnimation();
-      overlayAnim.stopAnimation();
-      scrollX.stopAnimation();
+      slideAnim.value = withTiming(height);
+      overlayAnim.value = withTiming(0);
+      scrollX.value = withTiming(0);
     };
   }, [slideAnim, overlayAnim, scrollX]);
 
@@ -284,40 +304,28 @@ export default function HomeScreen() {
 
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
-      Animated.parallel([
-        Animated.spring(slideAnim, {
-          toValue: 0,
-          useNativeDriver: true,
-          tension: 100,
-          friction: 8,
-        }),
-        Animated.timing(overlayAnim, {
-          toValue: 1,
-          duration: 300,
-          useNativeDriver: true,
-        }),
-      ]).start();
+      slideAnim.value = withSpring(0, {
+        damping: 15,
+        stiffness: 100,
+      });
+      overlayAnim.value = withTiming(1, { duration: 300 });
     },
     [slideAnim, overlayAnim]
   );
 
   const closeDrawer = useCallback(() => {
-    Animated.parallel([
-      Animated.spring(slideAnim, {
-        toValue: height,
-        useNativeDriver: true,
-        tension: 100,
-        friction: 8,
-      }),
-      Animated.timing(overlayAnim, {
-        toValue: 0,
-        duration: 200,
-        useNativeDriver: true,
-      }),
-    ]).start(() => {
-      setDrawerVisible(false);
-      setSelectedDate(null);
-      setSelectedDayEvents([]);
+    slideAnim.value = withSpring(height, {
+      damping: 15,
+      stiffness: 100,
+    });
+    overlayAnim.value = withTiming(0, { duration: 200 }, finished => {
+      if (finished) {
+        runOnJS(() => {
+          setDrawerVisible(false);
+          setSelectedDate(null);
+          setSelectedDayEvents([]);
+        })();
+      }
     });
 
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -340,42 +348,34 @@ export default function HomeScreen() {
 
   // 자연어 드로어 관련 함수들
   const handleOpenNaturalLanguageDrawer = useCallback(() => {
-    setIsNaturalLanguageDrawerVisible(true);
+    showNaturalLanguageDrawer();
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-  }, []);
+  }, [showNaturalLanguageDrawer]);
 
   const handleCloseNaturalLanguageDrawer = useCallback(() => {
-    setIsNaturalLanguageDrawerVisible(false);
-  }, []);
+    hideNaturalLanguageDrawer();
+  }, [hideNaturalLanguageDrawer]);
 
-  const handleNaturalLanguageEventSave = useCallback((event: any) => {
-    const eventWithId = {
-      ...event,
-      id: Date.now().toString(),
-      // 호환성을 위한 추가 필드들
-      time: event.startDate.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }),
-      date: event.startDate.toISOString().split('T')[0],
-      priority: event.priority || 'MEDIUM' as const,
-      isCompleted: false,
-      // 자연어 파싱 결과에서 누락될 수 있는 필드들의 기본값
-      notifications: event.notifications || ['15_min'],
-      color: event.color || getCategoryColor(event.category || 'personal'),
-    };
+  const handleNaturalLanguageEventSave = useCallback(
+    (event: any) => {
+      const eventWithId = {
+        ...event,
+        id: Date.now().toString(),
+        // 호환성을 위한 추가 필드들
+        time: event.startDate.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }),
+        date: event.startDate.toISOString().split('T')[0],
+        priority: event.priority || ('MEDIUM' as const),
+        isCompleted: false,
+        // 자연어 파싱 결과에서 누락될 수 있는 필드들의 기본값
+        notifications: event.notifications || ['15_min'],
+        color: event.color || getCategoryColor(event.category || 'personal'),
+      };
 
-    setAllEvents(prev => [...prev, eventWithId]);
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-  }, [getCategoryColor]);
-
-  // FloatingActionMenu 핸들러들
-  const handleManualSchedule = useCallback(() => {
-    showAddEventModal();
-  }, [showAddEventModal]);
-
-  const handleVoiceInput = useCallback(() => {
-    // 음성 입력으로 자연어 드로어 열기
-    setIsNaturalLanguageDrawerVisible(true);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-  }, []);
+      setAllEvents(prev => [...prev, eventWithId]);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    },
+    [getCategoryColor]
+  );
 
   const toggleEventCompletion = useCallback((eventId: string) => {
     setAllEvents(prev =>
@@ -390,201 +390,11 @@ export default function HomeScreen() {
   // 한국식 요일 (일요일 시작)
   const dayNames = ['일', '월', '화', '수', '목', '금', '토'];
 
-  // 현재 달의 캘린더 데이터 생성 (5주만)
-  const renderCalendar = useMemo(() => {
-    const year = currentDate.getFullYear();
-    const month = currentDate.getMonth();
-
-    const firstDay = new Date(year, month, 1);
-    const lastDay = new Date(year, month + 1, 0);
-    const startDate = new Date(firstDay);
-    startDate.setDate(startDate.getDate() - firstDay.getDay());
-
-    const weeks = [];
-    const currentWeekDate = new Date(startDate);
-
-    // 5주간의 달력 생성
-    for (let week = 0; week < 5; week++) {
-      const weekDays = [];
-      for (let day = 0; day < 7; day++) {
-        const date = new Date(currentWeekDate);
-        const dateString = date.toISOString().split('T')[0];
-        const dayEvents = getEventsForDate(dateString);
-        const isCurrentMonth = date.getMonth() === month;
-        const isToday = dateString === new Date().toISOString().split('T')[0];
-
-        weekDays.push({
-          date: date,
-          dateString: dateString,
-          events: dayEvents,
-          isCurrentMonth: isCurrentMonth,
-          isToday: isToday,
-        });
-
-        currentWeekDate.setDate(currentWeekDate.getDate() + 1);
-      }
-      weeks.push(weekDays);
-    }
-
-    return weeks.map((week, weekIndex) => (
-      <View key={weekIndex} style={styles.weekRow}>
-        {week.map((day, dayIndex) => (
-          <Pressable
-            key={dayIndex}
-            style={[
-              styles.dayCell,
-              { backgroundColor: theme.colors.background.primary },
-              !day.isCurrentMonth && styles.otherMonthCell,
-            ]}
-            onPress={() => {
-              openDrawer(day.dateString, day.events);
-            }}
-            android_ripple={{
-              color: theme.colors.primary[100],
-              borderless: false,
-            }}
-          >
-            {/* 날짜 숫자 */}
-            <View style={styles.dayHeader}>
-              <View style={styles.dayNumberContainer}>
-                <View
-                  style={[
-                    styles.dayNumberBackground,
-                    day.isToday && {
-                      backgroundColor: theme.colors.primary[500],
-                      transform: [{ scale: 1.05 }],
-                    },
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.dayNumber,
-                      { color: theme.colors.text.primary },
-                      !day.isCurrentMonth && {
-                        color: theme.colors.text.tertiary,
-                        opacity: 0.4,
-                      },
-                      day.isToday && {
-                        color: '#FFFFFF',
-                        fontWeight: '900',
-                      },
-                      dayIndex === 0 && day.isCurrentMonth && !day.isToday && { color: '#EF4444' },
-                      dayIndex === 6 &&
-                        day.isCurrentMonth &&
-                        !day.isToday && { color: theme.colors.primary[600] },
-                    ]}
-                  >
-                    {day.date.getDate()}
-                  </Text>
-                </View>
-                {day.isToday && (
-                  <View style={[styles.todayDot, { backgroundColor: theme.colors.primary[500] }]} />
-                )}
-              </View>
-            </View>
-
-            {/* 이벤트 미니 카드들 (동적 개수) */}
-            <View style={styles.eventsContainer}>
-              {(() => {
-                const availableHeight = CELL_HEIGHT - 18 - 3 - 6; // 총 높이 - 헤더 - 패딩 - 여백
-                const cardHeight = 16; // 카드 높이 + 마진
-                const maxEvents = Math.floor(availableHeight / cardHeight);
-                const visibleEvents = Math.max(
-                  1,
-                  maxEvents - (day.events.length > maxEvents ? 1 : 0)
-                );
-
-                return (
-                  <>
-                    {day.events.slice(0, visibleEvents).map((event, eventIndex) => (
-                      <View
-                        key={event.id}
-                        style={[
-                          styles.miniEventCard,
-                          { backgroundColor: getCategoryColor(event.category) },
-                        ]}
-                      >
-                        <Text style={styles.miniEventTitle} numberOfLines={1}>
-                          {event.title}
-                        </Text>
-                      </View>
-                    ))}
-
-                    {day.events.length > visibleEvents && (
-                      <View
-                        style={[
-                          styles.moreEventsIndicator,
-                          { backgroundColor: theme.colors.surface },
-                        ]}
-                      >
-                        <Text
-                          style={[styles.moreEventsText, { color: theme.colors.text.secondary }]}
-                        >
-                          외 {day.events.length - visibleEvents}개
-                        </Text>
-                      </View>
-                    )}
-                  </>
-                );
-              })()}
-            </View>
-          </Pressable>
-        ))}
-      </View>
-    ));
-  }, [currentDate, allEvents, theme, getCategoryColor, getEventsForDate, openDrawer]);
-
-  const formatSelectedDate = useMemo(() => {
-    if (!selectedDate) return '';
-    try {
-      const date = new Date(selectedDate);
-      if (isNaN(date.getTime())) return selectedDate;
-      return `${date.getFullYear()}년 ${date.getMonth() + 1}월 ${date.getDate()}일`;
-    } catch (error) {
-      return selectedDate;
-    }
-  }, [selectedDate]);
-
-  // 월 데이터 생성 (현재 월 기준 ±3개월)
-  const generateMonthsData = useCallback(() => {
-    const months = [];
-    const currentYear = currentDate.getFullYear();
-    const currentMonth = currentDate.getMonth();
-
-    for (let i = -3; i <= 3; i++) {
-      const date = new Date(currentYear, currentMonth + i, 1);
-      months.push({
-        date,
-        key: `${date.getFullYear()}-${date.getMonth()}`,
-        year: date.getFullYear(),
-        month: date.getMonth(),
-      });
-    }
-
-    return months;
-  }, [currentDate]);
-
-  const monthsData = generateMonthsData();
-  const currentMonthIndex = 3; // 현재 월의 인덱스
-
-  const onMomentumScrollEnd = useCallback(
-    (event: any) => {
-      const offsetX = event.nativeEvent.contentOffset.x;
-      const index = Math.round(offsetX / width);
-      const newMonth = monthsData[index];
-
-      if (newMonth && index !== currentMonthIndex) {
-        setCurrentDate(newMonth.date);
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      }
-    },
-    [monthsData, currentMonthIndex]
-  );
-
-  const renderMonth = useCallback(
-    (monthData: any) => {
-      const year = monthData.date.getFullYear();
-      const month = monthData.date.getMonth();
+  // 특정 월의 캘린더를 렌더링하는 함수
+  const renderMonthCalendar = useCallback(
+    (monthDate: Date) => {
+      const year = monthDate.getFullYear();
+      const month = monthDate.getMonth();
 
       const firstDay = new Date(year, month, 1);
       const startDate = new Date(firstDay);
@@ -730,6 +540,58 @@ export default function HomeScreen() {
     [theme, getCategoryColor, getEventsForDate, openDrawer]
   );
 
+  // 현재 달의 캘린더 데이터 생성 (5주만)
+  const renderCalendar = useMemo(() => {
+    return renderMonthCalendar(currentDate);
+  }, [currentDate, renderMonthCalendar]);
+
+  const formatSelectedDate = useMemo(() => {
+    if (!selectedDate) return '';
+    try {
+      const date = new Date(selectedDate);
+      if (isNaN(date.getTime())) return selectedDate;
+      return `${date.getFullYear()}년 ${date.getMonth() + 1}월 ${date.getDate()}일`;
+    } catch (error) {
+      return selectedDate;
+    }
+  }, [selectedDate]);
+
+  // 월 데이터 생성 (현재 월 기준 ±3개월)
+  const generateMonthsData = useCallback(() => {
+    const months = [];
+    const currentYear = currentDate.getFullYear();
+    const currentMonth = currentDate.getMonth();
+
+    for (let i = -3; i <= 3; i++) {
+      const date = new Date(currentYear, currentMonth + i, 1);
+      months.push({
+        date,
+        key: `${date.getFullYear()}-${date.getMonth()}`,
+        year: date.getFullYear(),
+        month: date.getMonth(),
+      });
+    }
+
+    return months;
+  }, [currentDate]);
+
+  const monthsData = generateMonthsData();
+  const currentMonthIndex = 3; // 현재 월의 인덱스
+
+  const onMomentumScrollEnd = useCallback(
+    (event: any) => {
+      const offsetX = event.nativeEvent.contentOffset.x;
+      const index = Math.round(offsetX / width);
+      const newMonth = monthsData[index];
+
+      if (newMonth && index !== currentMonthIndex) {
+        setCurrentDate(newMonth.date);
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      }
+    },
+    [monthsData, currentMonthIndex]
+  );
+
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background.primary }]}>
       <StatusBar
@@ -845,7 +707,7 @@ export default function HomeScreen() {
           >
             {monthsData.map((monthData, index) => (
               <View key={monthData.key} style={[styles.monthContainer, { width }]}>
-                {renderMonth(monthData)}
+                {renderMonthCalendar(monthData.date)}
               </View>
             ))}
           </ScrollView>
@@ -1222,28 +1084,12 @@ export default function HomeScreen() {
         onRequestClose={closeDrawer}
       >
         {/* 오버레이 */}
-        <Animated.View
-          style={[
-            styles.overlay,
-            {
-              opacity: overlayAnim,
-              backgroundColor: 'rgba(0, 0, 0, 0.5)',
-            },
-          ]}
-        >
+        <Animated.View style={[styles.overlay, overlayAnimatedStyle]}>
           <Pressable style={StyleSheet.absoluteFill} onPress={closeDrawer} />
         </Animated.View>
 
         {/* 드로어 컨텐츠 */}
-        <Animated.View
-          style={[
-            styles.drawer,
-            {
-              backgroundColor: theme.colors.background.card,
-              transform: [{ translateY: slideAnim }],
-            },
-          ]}
-        >
+        <Animated.View style={[styles.drawer, drawerAnimatedStyle]}>
           {/* 드래그 핸들 */}
           <View style={styles.dragHandle}>
             <View style={[styles.handleBar, { backgroundColor: theme.colors.border }]} />
@@ -1429,15 +1275,6 @@ export default function HomeScreen() {
         onClose={handleCloseNaturalLanguageDrawer}
         onSave={handleNaturalLanguageEventSave}
       />
-
-      {/* Floating Action Menu - 드로어가 열려있을 때는 숨김 */}
-      {!drawerVisible && !isNaturalLanguageDrawerVisible && (
-        <FloatingActionMenu
-          onAISchedule={handleOpenNaturalLanguageDrawer}
-          onManualSchedule={handleManualSchedule}
-          onVoiceInput={handleVoiceInput}
-        />
-      )}
     </SafeAreaView>
   );
 }
@@ -1754,18 +1591,16 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   addEventButton: {
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 12,
+    paddingHorizontal: 24,
+    paddingVertical: 14,
+    borderRadius: 16,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
     gap: 8,
-    marginTop: 20,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 6,
   },
   addEventButtonText: {
     fontSize: 16,

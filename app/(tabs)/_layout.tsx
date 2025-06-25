@@ -1,15 +1,12 @@
+import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
 import React from 'react';
-import { Ionicons } from '@expo/vector-icons';
-import { View, TouchableOpacity, StyleSheet } from 'react-native';
+import { StyleSheet, TouchableOpacity } from 'react-native';
 import { useModal } from '../../src/contexts/ModalContext';
 import { useTheme } from '../../src/contexts/ThemeContext';
-import FloatingActionMenu from '../../src/components/ui/FloatingActionMenu';
-
-// 중앙 플로팅 버튼 컴포넌트 (FloatingActionMenu로 대체)
 
 export default function TabLayout() {
-  const { showAddEventModal, handleAISchedule, handleVoiceInput } = useModal();
+  const { showAddEventModal } = useModal();
   const { theme } = useTheme();
 
   return (
@@ -54,11 +51,13 @@ export default function TabLayout() {
         options={{
           title: '',
           tabBarButton: () => (
-            <FloatingActionMenu
-              onAISchedule={handleAISchedule}
-              onManualSchedule={showAddEventModal}
-              onVoiceInput={handleVoiceInput}
-            />
+            <TouchableOpacity
+              style={[styles.centerButton, { backgroundColor: theme.colors.primary[500] }]}
+              onPress={showAddEventModal}
+              activeOpacity={0.8}
+            >
+              <Ionicons name='add' size={24} color='#FFFFFF' />
+            </TouchableOpacity>
           ),
         }}
       />
@@ -81,17 +80,19 @@ export default function TabLayout() {
 }
 
 const styles = StyleSheet.create({
-  // FloatingActionMenu 컴포넌트가 자체 스타일을 가지므로 더 이상 필요하지 않음
-  viewToggle: {
-    flexDirection: 'row',
+  centerButton: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    justifyContent: 'center',
     alignItems: 'center',
-    padding: 5,
-  },
-  toggleButton: {
-    padding: 5,
-  },
-  activeToggle: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 10,
+    marginTop: -20,
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 6,
   },
 });

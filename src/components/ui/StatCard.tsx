@@ -1,6 +1,14 @@
-import React from 'react';
-import { View, Text, StyleSheet, Animated, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import React from 'react';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import Animated, {
+  interpolate,
+  useAnimatedStyle,
+  useSharedValue,
+  withDelay,
+  withTiming,
+} from 'react-native-reanimated';
+
 import { useTheme } from '../../contexts/ThemeContext';
 
 interface StatItem {
@@ -24,32 +32,21 @@ interface StatCardProps {
 
 export const StatCard: React.FC<StatCardProps> = ({ title, stats, style }) => {
   const { theme } = useTheme();
-  const [animatedValues] = React.useState(stats.map(() => new Animated.Value(0)));
+  const animatedValues = stats.map(() => useSharedValue(0));
 
   React.useEffect(() => {
-    const animations = animatedValues.map(animatedValue =>
-      Animated.timing(animatedValue, {
-        toValue: 1,
-        duration: 800,
-        useNativeDriver: true,
-      })
-    );
-
-    Animated.stagger(100, animations).start();
+    animatedValues.forEach((animatedValue, index) => {
+      animatedValue.value = withDelay(index * 100, withTiming(1, { duration: 800 }));
+    });
   }, [animatedValues]);
 
   const renderStatItem = (item: StatItem, index: number) => {
     const animatedValue = animatedValues[index];
 
-    const scale = animatedValue.interpolate({
-      inputRange: [0, 1],
-      outputRange: [0.8, 1],
-    });
-
-    const opacity = animatedValue.interpolate({
-      inputRange: [0, 1],
-      outputRange: [0, 1],
-    });
+    const animatedStyle = useAnimatedStyle(() => ({
+      transform: [{ scale: interpolate(animatedValue.value, [0, 1], [0.8, 1]) }],
+      opacity: animatedValue.value,
+    }));
 
     return (
       <TouchableOpacity
@@ -66,9 +63,8 @@ export const StatCard: React.FC<StatCardProps> = ({ title, stats, style }) => {
             styles.statItem,
             {
               backgroundColor: theme.colors.surface,
-              transform: [{ scale }],
-              opacity,
             },
+            animatedStyle,
           ]}
         >
           <View style={[styles.iconContainer, { backgroundColor: item.color + '20' }]}>

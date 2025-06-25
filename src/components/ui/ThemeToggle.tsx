@@ -1,6 +1,14 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Animated, Dimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import React from 'react';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import Animated, {
+  interpolate,
+  interpolateColor,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
+
 import { useTheme } from '../../contexts/ThemeContext';
 
 interface ThemeToggleProps {
@@ -9,18 +17,16 @@ interface ThemeToggleProps {
   style?: any;
 }
 
-const { width } = Dimensions.get('window');
-
 export const ThemeToggle: React.FC<ThemeToggleProps> = ({
   size = 'medium',
   showLabel = true,
   style,
 }) => {
-  const { theme, themeMode, toggleTheme } = useTheme();
+  const { theme, toggleTheme } = useTheme();
   const isDark = theme.isDark;
 
-  // 애니메이션 값
-  const [toggleAnimation] = React.useState(new Animated.Value(isDark ? 1 : 0));
+  // 애니메이션 값 - Reanimated
+  const toggleAnimation = useSharedValue(isDark ? 1 : 0);
 
   // 크기별 스타일
   const sizes = {
@@ -32,31 +38,38 @@ export const ThemeToggle: React.FC<ThemeToggleProps> = ({
   const currentSize = sizes[size];
 
   React.useEffect(() => {
-    Animated.timing(toggleAnimation, {
-      toValue: isDark ? 1 : 0,
-      duration: 300,
-      useNativeDriver: false,
-    }).start();
-  }, [isDark, toggleAnimation]);
+    toggleAnimation.value = withTiming(isDark ? 1 : 0, { duration: 300 });
+  }, [isDark]);
 
   const handleToggle = () => {
     toggleTheme();
   };
 
-  const trackColor = toggleAnimation.interpolate({
-    inputRange: [0, 1],
-    outputRange: [theme.colors.border, theme.colors.primary[500]],
-  });
+  // 애니메이션 스타일들
+  const trackStyle = useAnimatedStyle(() => ({
+    backgroundColor: interpolateColor(
+      toggleAnimation.value,
+      [0, 1],
+      [theme.colors.border, theme.colors.primary[500]]
+    ),
+  }));
 
-  const thumbTranslateX = toggleAnimation.interpolate({
-    inputRange: [0, 1],
-    outputRange: [2, currentSize.width - currentSize.height + 2],
-  });
-
-  const thumbColor = toggleAnimation.interpolate({
-    inputRange: [0, 1],
-    outputRange: [theme.colors.text.secondary, theme.colors.text.inverse],
-  });
+  const thumbStyle = useAnimatedStyle(() => ({
+    backgroundColor: interpolateColor(
+      toggleAnimation.value,
+      [0, 1],
+      [theme.colors.text.secondary, theme.colors.text.inverse]
+    ),
+    transform: [
+      {
+        translateX: interpolate(
+          toggleAnimation.value,
+          [0, 1],
+          [2, currentSize.width - currentSize.height + 2]
+        ),
+      },
+    ],
+  }));
 
   return (
     <View style={[styles.container, style]}>
@@ -77,8 +90,8 @@ export const ThemeToggle: React.FC<ThemeToggleProps> = ({
             {
               width: currentSize.width,
               height: currentSize.height,
-              backgroundColor: trackColor,
             },
+            trackStyle,
           ]}
         >
           <Animated.View
@@ -87,9 +100,8 @@ export const ThemeToggle: React.FC<ThemeToggleProps> = ({
               {
                 width: currentSize.height - 4,
                 height: currentSize.height - 4,
-                backgroundColor: thumbColor,
-                transform: [{ translateX: thumbTranslateX }],
               },
+              thumbStyle,
             ]}
           >
             <Ionicons

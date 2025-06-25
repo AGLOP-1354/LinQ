@@ -2,24 +2,31 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
-    ActivityIndicator,
-    Animated,
-    Dimensions,
-    Keyboard,
-    KeyboardAvoidingView,
-    Platform,
-    SafeAreaView,
-    ScrollView,
-    StatusBar,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Dimensions,
+  Keyboard,
+  KeyboardAvoidingView,
+  Platform,
+  SafeAreaView,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
+import Animated, {
+  runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+  withTiming,
+} from 'react-native-reanimated';
+
 import { useTheme } from '../../contexts/ThemeContext';
 
-const { width, height } = Dimensions.get('window');
+const { height } = Dimensions.get('window');
 
 interface ParsedEvent {
   title: string;
@@ -58,7 +65,7 @@ const NaturalLanguageEventDrawer: React.FC<NaturalLanguageEventDrawerProps> = ({
   initialText = '',
 }) => {
   const { theme } = useTheme();
-  const [slideAnimation] = useState(new Animated.Value(height));
+  const slideAnimation = useSharedValue(height);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
 
   // 입력 상태
@@ -79,188 +86,7 @@ const NaturalLanguageEventDrawer: React.FC<NaturalLanguageEventDrawerProps> = ({
   const inputRef = useRef<TextInput>(null);
   const debounceTimer = useRef<NodeJS.Timeout>();
 
-  // 애니메이션 및 키보드 처리
-  useEffect(() => {
-    if (visible) {
-      // 초기화
-      setInputText(initialText);
-      setParsedEvent(null);
-      setParsingError(null);
-      setIsProcessing(false);
-
-      // 애니메이션 시작
-      Animated.spring(slideAnimation, {
-        toValue: 0,
-        useNativeDriver: true,
-        tension: 100,
-        friction: 8,
-      }).start(() => {
-        // 애니메이션 완료 후 포커스
-        setTimeout(() => inputRef.current?.focus(), 100);
-      });
-
-      loadSmartSuggestions(initialText);
-    } else {
-      Animated.timing(slideAnimation, {
-        toValue: height,
-        duration: 300,
-        useNativeDriver: true,
-      }).start();
-    }
-  }, [visible]);
-
-  // 키보드 이벤트 처리
-  useEffect(() => {
-    const keyboardDidShowListener = Keyboard.addListener(
-      'keyboardDidShow',
-      (e) => setKeyboardHeight(e.endCoordinates.height)
-    );
-    const keyboardDidHideListener = Keyboard.addListener(
-      'keyboardDidHide',
-      () => setKeyboardHeight(0)
-    );
-
-    return () => {
-      keyboardDidShowListener?.remove();
-      keyboardDidHideListener?.remove();
-    };
-  }, []);
-
-    // 실시간 자연어 파싱
-  useEffect(() => {
-    if (inputText.trim().length > 3) {
-      if (debounceTimer.current) {
-        clearTimeout(debounceTimer.current);
-      }
-
-      debounceTimer.current = setTimeout(() => {
-        parseNaturalLanguage(inputText);
-      }, 800); // 800ms 디바운스
-    } else {
-      setParsedEvent(null);
-      setParsingError(null);
-    }
-
-    return () => {
-      if (debounceTimer.current) {
-        clearTimeout(debounceTimer.current);
-      }
-    };
-  }, [inputText]);
-
-  // 입력값 변경에 따른 스마트 제안 업데이트
-  useEffect(() => {
-    loadSmartSuggestions(inputText);
-  }, [inputText, loadSmartSuggestions]);
-
-  // AI 자연어 파싱 (모의 구현)
-  const parseNaturalLanguage = useCallback(async (text: string) => {
-    setIsProcessing(true);
-    setParsingError(null);
-
-    try {
-      // 실제로는 AI API 호출
-      await new Promise(resolve => setTimeout(resolve, 1200)); // 모의 지연
-
-      const parsed = await mockNaturalLanguageParser(text);
-      setParsedEvent(parsed);
-
-      if (parsed.confidence < 70) {
-        setParsingError('입력을 더 명확하게 해주세요. 예: "내일 오후 2시에 회의"');
-      }
-    } catch (error) {
-      setParsingError('일정을 이해하지 못했습니다. 다시 시도해주세요.');
-      setParsedEvent(null);
-    } finally {
-      setIsProcessing(false);
-    }
-  }, []);
-
-  // 모의 자연어 파서
-  const mockNaturalLanguageParser = async (text: string): Promise<ParsedEvent> => {
-    const today = new Date();
-    let confidence = 60;
-
-    // 기본 파싱 로직 (실제로는 더 정교한 NLP/AI 처리)
-    const timePatterns = {
-      '내일': () => {
-        const tomorrow = new Date(today);
-        tomorrow.setDate(today.getDate() + 1);
-        confidence += 20;
-        return tomorrow;
-      },
-      '오늘': () => {
-        confidence += 20;
-        return today;
-      },
-      '모레': () => {
-        const dayAfter = new Date(today);
-        dayAfter.setDate(today.getDate() + 2);
-        confidence += 15;
-        return dayAfter;
-      },
-    };
-
-    let startDate = new Date();
-
-    // 날짜 파싱
-    for (const [pattern, dateFunc] of Object.entries(timePatterns)) {
-      if (text.includes(pattern)) {
-        startDate = dateFunc();
-        break;
-      }
-    }
-
-    // 시간 파싱
-    const timeMatch = text.match(/(\d{1,2})시/);
-    if (timeMatch) {
-      startDate.setHours(parseInt(timeMatch[1]), 0, 0, 0);
-      confidence += 15;
-    }
-
-    // 제목 추출
-    let title = text
-      .replace(/(내일|오늘|모레)/g, '')
-      .replace(/\d{1,2}시/g, '')
-      .replace(/(오전|오후)/g, '')
-      .trim();
-
-    if (!title) {
-      title = '새 일정';
-      confidence -= 20;
-    } else {
-      confidence += 10;
-    }
-
-    // 카테고리 추론
-    let category = 'personal';
-    const workKeywords = ['회의', '미팅', '업무', '프로젝트', '발표'];
-    const healthKeywords = ['운동', '헬스', '요가', '병원', '검진'];
-
-    if (workKeywords.some(keyword => text.includes(keyword))) {
-      category = 'work';
-      confidence += 10;
-    } else if (healthKeywords.some(keyword => text.includes(keyword))) {
-      category = 'health';
-      confidence += 10;
-    }
-
-    // 종료 시간 설정
-    const endDate = new Date(startDate);
-    endDate.setHours(startDate.getHours() + 1);
-
-    return {
-      title,
-      startDate,
-      endDate,
-      isAllDay: false,
-      category,
-      priority: 'MEDIUM',
-      confidence: Math.min(confidence, 95), // 최대 95%
-    };
-  };
-
-    // 스마트 제안 로드 - 입력값에 따라 동적으로 변경
+  // 스마트 제안 로드 - 입력값에 따라 동적으로 변경
   const loadSmartSuggestions = useCallback((currentInput: string = '') => {
     let suggestions: SmartSuggestion[] = [];
 
@@ -392,17 +218,201 @@ const NaturalLanguageEventDrawer: React.FC<NaturalLanguageEventDrawerProps> = ({
     setSmartSuggestions(suggestions);
   }, []);
 
-  // 제안 선택
-  const handleSuggestionSelect = useCallback((suggestion: SmartSuggestion) => {
-    if (inputText.length === 0) {
-      // 빈 입력일 때는 전체 텍스트로 교체
-      setInputText(suggestion.text);
+  // 애니메이션 및 키보드 처리
+  useEffect(() => {
+    if (visible) {
+      // 초기화
+      setInputText(initialText);
+      setParsedEvent(null);
+      setParsingError(null);
+      setIsProcessing(false);
+
+      // 애니메이션 시작
+      slideAnimation.value = withSpring(
+        0,
+        {
+          damping: 15,
+          stiffness: 100,
+        },
+        finished => {
+          if (finished) {
+            // 애니메이션 완료 후 포커스
+            runOnJS(() => {
+              setTimeout(() => inputRef.current?.focus(), 100);
+            })();
+          }
+        }
+      );
+
+      loadSmartSuggestions(initialText);
     } else {
-      // 입력이 있을 때는 추가 또는 교체 선택지 제공
-      setInputText(suggestion.text);
+      slideAnimation.value = withTiming(height, { duration: 300 });
     }
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  }, [visible]);
+
+  // 키보드 이벤트 처리
+  useEffect(() => {
+    const keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', e =>
+      setKeyboardHeight(e.endCoordinates.height)
+    );
+    const keyboardDidHideListener = Keyboard.addListener('keyboardDidHide', () =>
+      setKeyboardHeight(0)
+    );
+
+    return () => {
+      keyboardDidShowListener?.remove();
+      keyboardDidHideListener?.remove();
+    };
+  }, []);
+
+  // 실시간 자연어 파싱
+  useEffect(() => {
+    if (inputText.trim().length > 3) {
+      if (debounceTimer.current) {
+        clearTimeout(debounceTimer.current);
+      }
+
+      debounceTimer.current = setTimeout(() => {
+        parseNaturalLanguage(inputText);
+      }, 800); // 800ms 디바운스
+    } else {
+      setParsedEvent(null);
+      setParsingError(null);
+    }
+
+    return () => {
+      if (debounceTimer.current) {
+        clearTimeout(debounceTimer.current);
+      }
+    };
   }, [inputText]);
+
+  // 입력값 변경에 따른 스마트 제안 업데이트
+  useEffect(() => {
+    loadSmartSuggestions(inputText);
+  }, [inputText, loadSmartSuggestions]);
+
+  // AI 자연어 파싱 (모의 구현)
+  const parseNaturalLanguage = useCallback(async (text: string) => {
+    setIsProcessing(true);
+    setParsingError(null);
+
+    try {
+      // 실제로는 AI API 호출
+      await new Promise(resolve => setTimeout(resolve, 1200)); // 모의 지연
+
+      const parsed = await mockNaturalLanguageParser(text);
+      setParsedEvent(parsed);
+
+      if (parsed.confidence < 70) {
+        setParsingError('입력을 더 명확하게 해주세요. 예: "내일 오후 2시에 회의"');
+      }
+    } catch (error) {
+      setParsingError('일정을 이해하지 못했습니다. 다시 시도해주세요.');
+      setParsedEvent(null);
+    } finally {
+      setIsProcessing(false);
+    }
+  }, []);
+
+  // 모의 자연어 파서
+  const mockNaturalLanguageParser = async (text: string): Promise<ParsedEvent> => {
+    const today = new Date();
+    let confidence = 60;
+
+    // 기본 파싱 로직 (실제로는 더 정교한 NLP/AI 처리)
+    const timePatterns = {
+      내일: () => {
+        const tomorrow = new Date(today);
+        tomorrow.setDate(today.getDate() + 1);
+        confidence += 20;
+        return tomorrow;
+      },
+      오늘: () => {
+        confidence += 20;
+        return today;
+      },
+      모레: () => {
+        const dayAfter = new Date(today);
+        dayAfter.setDate(today.getDate() + 2);
+        confidence += 15;
+        return dayAfter;
+      },
+    };
+
+    let startDate = new Date();
+
+    // 날짜 파싱
+    for (const [pattern, dateFunc] of Object.entries(timePatterns)) {
+      if (text.includes(pattern)) {
+        startDate = dateFunc();
+        break;
+      }
+    }
+
+    // 시간 파싱
+    const timeMatch = text.match(/(\d{1,2})시/);
+    if (timeMatch) {
+      startDate.setHours(parseInt(timeMatch[1]), 0, 0, 0);
+      confidence += 15;
+    }
+
+    // 제목 추출
+    let title = text
+      .replace(/(내일|오늘|모레)/g, '')
+      .replace(/\d{1,2}시/g, '')
+      .replace(/(오전|오후)/g, '')
+      .trim();
+
+    if (!title) {
+      title = '새 일정';
+      confidence -= 20;
+    } else {
+      confidence += 10;
+    }
+
+    // 카테고리 추론
+    let category = 'personal';
+    const workKeywords = ['회의', '미팅', '업무', '프로젝트', '발표'];
+    const healthKeywords = ['운동', '헬스', '요가', '병원', '검진'];
+
+    if (workKeywords.some(keyword => text.includes(keyword))) {
+      category = 'work';
+      confidence += 10;
+    } else if (healthKeywords.some(keyword => text.includes(keyword))) {
+      category = 'health';
+      confidence += 10;
+    }
+
+    // 종료 시간 설정
+    const endDate = new Date(startDate);
+    endDate.setHours(startDate.getHours() + 1);
+
+    return {
+      title,
+      startDate,
+      endDate,
+      isAllDay: false,
+      category,
+      priority: 'MEDIUM',
+      confidence: Math.min(confidence, 95), // 최대 95%
+    };
+  };
+
+  // 제안 선택
+  const handleSuggestionSelect = useCallback(
+    (suggestion: SmartSuggestion) => {
+      if (inputText.length === 0) {
+        // 빈 입력일 때는 전체 텍스트로 교체
+        setInputText(suggestion.text);
+      } else {
+        // 입력이 있을 때는 추가 또는 교체 선택지 제공
+        setInputText(suggestion.text);
+      }
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    },
+    [inputText]
+  );
 
   // 음성 입력 토글
   const toggleVoiceMode = useCallback(() => {
@@ -466,6 +476,11 @@ const NaturalLanguageEventDrawer: React.FC<NaturalLanguageEventDrawerProps> = ({
     return date.toLocaleDateString('ko-KR', options);
   };
 
+  // 애니메이션 스타일
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: slideAnimation.value }],
+  }));
+
   if (!visible) return null;
 
   return (
@@ -477,8 +492,8 @@ const NaturalLanguageEventDrawer: React.FC<NaturalLanguageEventDrawerProps> = ({
           styles.drawer,
           {
             backgroundColor: theme.colors.background.primary,
-            transform: [{ translateY: slideAnimation }],
           },
+          animatedStyle,
         ]}
       >
         <KeyboardAvoidingView
@@ -502,20 +517,16 @@ const NaturalLanguageEventDrawer: React.FC<NaturalLanguageEventDrawerProps> = ({
               <TouchableOpacity
                 style={[styles.closeButton, { backgroundColor: theme.colors.surface }]}
                 onPress={onClose}
-                accessibilityLabel="닫기"
+                accessibilityLabel='닫기'
               >
-                <Ionicons
-                  name="close"
-                  size={24}
-                  color={theme.colors.text.secondary}
-                />
+                <Ionicons name='close' size={24} color={theme.colors.text.secondary} />
               </TouchableOpacity>
             </View>
 
             <ScrollView
               style={styles.content}
               showsVerticalScrollIndicator={false}
-              keyboardShouldPersistTaps="handled"
+              keyboardShouldPersistTaps='handled'
             >
               {/* 자연어 입력 영역 */}
               <View style={[styles.inputSection, { backgroundColor: theme.colors.surface }]}>
@@ -531,14 +542,14 @@ const NaturalLanguageEventDrawer: React.FC<NaturalLanguageEventDrawerProps> = ({
                     ]}
                     value={inputText}
                     onChangeText={setInputText}
-                    placeholder="예: 내일 오후 2시에 팀 회의"
+                    placeholder='예: 내일 오후 2시에 팀 회의'
                     placeholderTextColor={theme.colors.text.tertiary}
                     multiline
                     numberOfLines={3}
                     autoCorrect={false}
-                    autoCapitalize="sentences"
-                    accessibilityLabel="일정 입력"
-                    accessibilityHint="자연어로 일정을 입력하세요"
+                    autoCapitalize='sentences'
+                    accessibilityLabel='일정 입력'
+                    accessibilityHint='자연어로 일정을 입력하세요'
                   />
 
                   <View style={styles.inputActions}>
@@ -546,16 +557,20 @@ const NaturalLanguageEventDrawer: React.FC<NaturalLanguageEventDrawerProps> = ({
                       style={[
                         styles.voiceButton,
                         {
-                          backgroundColor: isVoiceMode ? theme.colors.primary[500] : theme.colors.surface,
+                          backgroundColor: isVoiceMode
+                            ? theme.colors.primary[500]
+                            : theme.colors.surface,
                         },
                       ]}
                       onPress={toggleVoiceMode}
-                      accessibilityLabel="음성 입력"
+                      accessibilityLabel='음성 입력'
                     >
                       <Ionicons
                         name={isVoiceMode ? 'mic' : 'mic-outline'}
                         size={20}
-                        color={isVoiceMode ? theme.colors.text.inverse : theme.colors.text.secondary}
+                        color={
+                          isVoiceMode ? theme.colors.text.inverse : theme.colors.text.secondary
+                        }
                       />
                     </TouchableOpacity>
 
@@ -563,10 +578,10 @@ const NaturalLanguageEventDrawer: React.FC<NaturalLanguageEventDrawerProps> = ({
                       <TouchableOpacity
                         style={[styles.clearButton, { backgroundColor: theme.colors.surface }]}
                         onPress={() => setInputText('')}
-                        accessibilityLabel="입력 내용 지우기"
+                        accessibilityLabel='입력 내용 지우기'
                       >
                         <Ionicons
-                          name="close-circle"
+                          name='close-circle'
                           size={20}
                           color={theme.colors.text.tertiary}
                         />
@@ -578,10 +593,7 @@ const NaturalLanguageEventDrawer: React.FC<NaturalLanguageEventDrawerProps> = ({
                 {/* 처리 상태 표시 */}
                 {isProcessing && (
                   <View style={styles.processingIndicator}>
-                    <ActivityIndicator
-                      size="small"
-                      color={theme.colors.primary[500]}
-                    />
+                    <ActivityIndicator size='small' color={theme.colors.primary[500]} />
                     <Text style={[styles.processingText, { color: theme.colors.text.secondary }]}>
                       일정을 분석하고 있습니다...
                     </Text>
@@ -596,20 +608,29 @@ const NaturalLanguageEventDrawer: React.FC<NaturalLanguageEventDrawerProps> = ({
                     <Text style={[styles.previewTitle, { color: theme.colors.text.primary }]}>
                       인식된 일정
                     </Text>
-                    <View style={[
-                      styles.confidenceBadge,
-                      { backgroundColor: getConfidenceColor(parsedEvent.confidence) + '20' }
-                    ]}>
-                      <Text style={[
-                        styles.confidenceText,
-                        { color: getConfidenceColor(parsedEvent.confidence) }
-                      ]}>
+                    <View
+                      style={[
+                        styles.confidenceBadge,
+                        { backgroundColor: getConfidenceColor(parsedEvent.confidence) + '20' },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.confidenceText,
+                          { color: getConfidenceColor(parsedEvent.confidence) },
+                        ]}
+                      >
                         {parsedEvent.confidence}% 확신
                       </Text>
                     </View>
                   </View>
 
-                  <View style={[styles.eventPreview, { backgroundColor: theme.colors.background.secondary }]}>
+                  <View
+                    style={[
+                      styles.eventPreview,
+                      { backgroundColor: theme.colors.background.secondary },
+                    ]}
+                  >
                     <View style={styles.eventInfo}>
                       <Text style={[styles.eventTitle, { color: theme.colors.text.primary }]}>
                         {parsedEvent.title}
@@ -618,11 +639,13 @@ const NaturalLanguageEventDrawer: React.FC<NaturalLanguageEventDrawerProps> = ({
                       <View style={styles.eventDetails}>
                         <View style={styles.eventDetailRow}>
                           <Ionicons
-                            name="time-outline"
+                            name='time-outline'
                             size={16}
                             color={theme.colors.text.secondary}
                           />
-                          <Text style={[styles.eventDetailText, { color: theme.colors.text.secondary }]}>
+                          <Text
+                            style={[styles.eventDetailText, { color: theme.colors.text.secondary }]}
+                          >
                             {formatDateTime(parsedEvent.startDate)}
                             {parsedEvent.endDate && ` - ${formatDateTime(parsedEvent.endDate)}`}
                           </Text>
@@ -631,16 +654,21 @@ const NaturalLanguageEventDrawer: React.FC<NaturalLanguageEventDrawerProps> = ({
                         {parsedEvent.category && (
                           <View style={styles.eventDetailRow}>
                             <Ionicons
-                              name="pricetag-outline"
+                              name='pricetag-outline'
                               size={16}
                               color={theme.colors.text.secondary}
                             />
-                            <Text style={[styles.eventDetailText, { color: theme.colors.text.secondary }]}>
+                            <Text
+                              style={[
+                                styles.eventDetailText,
+                                { color: theme.colors.text.secondary },
+                              ]}
+                            >
                               {parsedEvent.category}
                             </Text>
                           </View>
                         )}
-                                             </View>
+                      </View>
                     </View>
 
                     <TouchableOpacity
@@ -649,13 +677,9 @@ const NaturalLanguageEventDrawer: React.FC<NaturalLanguageEventDrawerProps> = ({
                         // 수정 모드로 전환 (상세 편집 모달 열기)
                         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                       }}
-                      accessibilityLabel="일정 수정"
+                      accessibilityLabel='일정 수정'
                     >
-                      <Ionicons
-                        name="create-outline"
-                        size={18}
-                        color={theme.colors.text.inverse}
-                      />
+                      <Ionicons name='create-outline' size={18} color={theme.colors.text.inverse} />
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -664,11 +688,7 @@ const NaturalLanguageEventDrawer: React.FC<NaturalLanguageEventDrawerProps> = ({
               {/* 오류 메시지 */}
               {parsingError && (
                 <View style={[styles.errorSection, { backgroundColor: theme.colors.error + '10' }]}>
-                  <Ionicons
-                    name="warning-outline"
-                    size={20}
-                    color={theme.colors.error}
-                  />
+                  <Ionicons name='warning-outline' size={20} color={theme.colors.error} />
                   <Text style={[styles.errorText, { color: theme.colors.error }]}>
                     {parsingError}
                   </Text>
@@ -677,18 +697,20 @@ const NaturalLanguageEventDrawer: React.FC<NaturalLanguageEventDrawerProps> = ({
 
               {/* 스마트 제안 */}
               {showSuggestions && smartSuggestions.length > 0 && (
-                <View style={[styles.suggestionsSection, { backgroundColor: theme.colors.surface }]}>
+                <View
+                  style={[styles.suggestionsSection, { backgroundColor: theme.colors.surface }]}
+                >
                   <Text style={[styles.sectionTitle, { color: theme.colors.text.primary }]}>
                     {inputText.length === 0 ? '빠른 입력' : '추천 문구'}
                   </Text>
 
                   <View style={styles.suggestionsGrid}>
-                    {smartSuggestions.map((suggestion) => (
+                    {smartSuggestions.map(suggestion => (
                       <TouchableOpacity
                         key={suggestion.id}
                         style={[
                           styles.suggestionItem,
-                          { backgroundColor: theme.colors.background.secondary }
+                          { backgroundColor: theme.colors.background.secondary },
                         ]}
                         onPress={() => handleSuggestionSelect(suggestion)}
                         accessibilityLabel={`${suggestion.text} 선택`}
@@ -698,7 +720,9 @@ const NaturalLanguageEventDrawer: React.FC<NaturalLanguageEventDrawerProps> = ({
                           size={20}
                           color={theme.colors.primary[500]}
                         />
-                        <Text style={[styles.suggestionText, { color: theme.colors.text.secondary }]}>
+                        <Text
+                          style={[styles.suggestionText, { color: theme.colors.text.secondary }]}
+                        >
                           {suggestion.text}
                         </Text>
                       </TouchableOpacity>
@@ -709,35 +733,41 @@ const NaturalLanguageEventDrawer: React.FC<NaturalLanguageEventDrawerProps> = ({
             </ScrollView>
 
             {/* 하단 액션 버튼 */}
-            <View style={[
-              styles.footer,
-              {
-                backgroundColor: theme.colors.background.primary,
-                borderTopColor: theme.colors.border,
-                paddingBottom: keyboardHeight > 0 ? 20 : 40,
-              },
-            ]}>
+            <View
+              style={[
+                styles.footer,
+                {
+                  backgroundColor: theme.colors.background.primary,
+                  borderTopColor: theme.colors.border,
+                  paddingBottom: keyboardHeight > 0 ? 20 : 40,
+                },
+              ]}
+            >
               <TouchableOpacity
                 style={[
                   styles.saveButton,
                   {
-                    backgroundColor: parsedEvent && parsedEvent.confidence >= 50
-                      ? theme.colors.primary[500]
-                      : theme.colors.surfaceDisabled,
+                    backgroundColor:
+                      parsedEvent && parsedEvent.confidence >= 50
+                        ? theme.colors.primary[500]
+                        : theme.colors.surfaceDisabled,
                   },
                 ]}
                 onPress={handleSave}
                 disabled={!parsedEvent || parsedEvent.confidence < 50}
-                accessibilityLabel="일정 저장"
+                accessibilityLabel='일정 저장'
               >
-                <Text style={[
-                  styles.saveButtonText,
-                  {
-                    color: parsedEvent && parsedEvent.confidence >= 50
-                      ? theme.colors.text.inverse
-                      : theme.colors.text.tertiary,
-                  },
-                ]}>
+                <Text
+                  style={[
+                    styles.saveButtonText,
+                    {
+                      color:
+                        parsedEvent && parsedEvent.confidence >= 50
+                          ? theme.colors.text.inverse
+                          : theme.colors.text.tertiary,
+                    },
+                  ]}
+                >
                   일정 추가
                 </Text>
               </TouchableOpacity>

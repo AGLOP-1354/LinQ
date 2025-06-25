@@ -1,54 +1,54 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import React, { useEffect, useRef } from 'react';
-import {
-  Alert,
-  Animated,
-  Dimensions,
-  SafeAreaView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import React, { useEffect } from 'react';
+import { Alert, SafeAreaView, StatusBar, StyleSheet, Text, View } from 'react-native';
+import Animated, {
+  interpolate,
+  useAnimatedStyle,
+  useSharedValue,
+  withDelay,
+  withTiming,
+} from 'react-native-reanimated';
 import LinQLogo from '../../src/components/ui/LinQLogo';
 import SocialLoginButton from '../../src/components/ui/SocialLoginButton';
 import { createDemoUser, useAuth } from '../../src/contexts/AuthContext';
 import { useTheme } from '../../src/contexts/ThemeContext';
-
-const { width, height } = Dimensions.get('window');
 
 export default function LoginScreen() {
   const router = useRouter();
   const { theme } = useTheme();
   const { login } = useAuth();
 
-  // 애니메이션 refs
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(50)).current;
-  const logoAnim = useRef(new Animated.Value(0)).current;
+  // 애니메이션 values
+  const fadeAnim = useSharedValue(0);
+  const slideAnim = useSharedValue(50);
+  const logoAnim = useSharedValue(0);
+
+  // 애니메이션 스타일들
+  const logoAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: logoAnim.value,
+    transform: [
+      {
+        scale: interpolate(logoAnim.value, [0, 0.5, 1], [0.5, 1.1, 1]),
+      },
+    ],
+  }));
+
+  const contentAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: fadeAnim.value,
+    transform: [{ translateY: slideAnim.value }],
+  }));
+
+  const footerAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: fadeAnim.value,
+  }));
 
   useEffect(() => {
-    // 페이지 진입 애니메이션
-    Animated.sequence([
-      Animated.timing(logoAnim, {
-        toValue: 1,
-        duration: 800,
-        useNativeDriver: true,
-      }),
-      Animated.parallel([
-        Animated.timing(fadeAnim, {
-          toValue: 1,
-          duration: 600,
-          useNativeDriver: true,
-        }),
-        Animated.timing(slideAnim, {
-          toValue: 0,
-          duration: 600,
-          useNativeDriver: true,
-        }),
-      ]),
-    ]).start();
+    // 페이지 진입 애니메이션 시퀀스
+    logoAnim.value = withTiming(1, { duration: 800 });
+
+    fadeAnim.value = withDelay(400, withTiming(1, { duration: 600 }));
+    slideAnim.value = withDelay(400, withTiming(0, { duration: 600 }));
   }, []);
 
   const handleSocialLogin = async (provider: 'kakao' | 'google' | 'apple') => {
@@ -73,16 +73,6 @@ export default function LoginScreen() {
   const handleGoogleLogin = () => handleSocialLogin('google');
   const handleAppleLogin = () => handleSocialLogin('apple');
 
-  const logoScale = logoAnim.interpolate({
-    inputRange: [0, 0.5, 1],
-    outputRange: [0.5, 1.1, 1],
-  });
-
-  const logoOpacity = logoAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, 1],
-  });
-
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background.primary }]}>
       <StatusBar
@@ -92,28 +82,12 @@ export default function LoginScreen() {
 
       <View style={styles.content}>
         {/* 로고 및 브랜드 영역 */}
-        <Animated.View
-          style={[
-            styles.logoSection,
-            {
-              opacity: logoOpacity,
-              transform: [{ scale: logoScale }],
-            },
-          ]}
-        >
+        <Animated.View style={[styles.logoSection, logoAnimatedStyle]}>
           <View style={styles.logoContainer}>
             <LinQLogo size={100} variant={theme.isDark ? 'dark' : 'light'} />
           </View>
 
-          <Animated.View
-            style={[
-              styles.brandSection,
-              {
-                opacity: fadeAnim,
-                transform: [{ translateY: slideAnim }],
-              },
-            ]}
-          >
+          <Animated.View style={[styles.brandSection, contentAnimatedStyle]}>
             <Text style={[styles.slogan, { color: theme.colors.text.primary }]}>
               AI와 함께하는 스마트한 일정 관리
             </Text>
@@ -124,15 +98,7 @@ export default function LoginScreen() {
         </Animated.View>
 
         {/* 소셜 로그인 버튼 영역 */}
-        <Animated.View
-          style={[
-            styles.loginSection,
-            {
-              opacity: fadeAnim,
-              transform: [{ translateY: slideAnim }],
-            },
-          ]}
-        >
+        <Animated.View style={[styles.loginSection, contentAnimatedStyle]}>
           <View style={styles.loginContainer}>
             <Text style={[styles.loginTitle, { color: theme.colors.text.primary }]}>
               간편하게 시작하기
@@ -149,14 +115,7 @@ export default function LoginScreen() {
         </Animated.View>
 
         {/* 하단 정보 영역 */}
-        <Animated.View
-          style={[
-            styles.footerSection,
-            {
-              opacity: fadeAnim,
-            },
-          ]}
-        >
+        <Animated.View style={[styles.footerSection, footerAnimatedStyle]}>
           <Text style={[styles.termsText, { color: theme.colors.text.tertiary }]}>
             로그인하면{' '}
             <Text style={[styles.linkText, { color: theme.colors.primary[500] }]}>

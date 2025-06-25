@@ -2,7 +2,6 @@ import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import {
   Alert,
-  Dimensions,
   RefreshControl,
   SafeAreaView,
   ScrollView,
@@ -12,15 +11,14 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+
 import { MenuCard, ProfileCard, ThemeToggle } from '../../src/components/ui';
 import { useAuth } from '../../src/contexts/AuthContext';
 import { useTheme } from '../../src/contexts/ThemeContext';
 
-const { width } = Dimensions.get('window');
-
 export default function ProfileScreen() {
   const { theme } = useTheme();
-  const { user, logout } = useAuth();
+  const { logout } = useAuth();
   const [refreshing, setRefreshing] = useState(false);
 
   // 샘플 사용자 데이터

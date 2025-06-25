@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
-import { Dimensions, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+
 import { useTheme } from '../../contexts/ThemeContext';
 
 interface ProfileCardProps {
@@ -10,8 +11,6 @@ interface ProfileCardProps {
   onEditPress?: () => void;
   style?: any;
 }
-
-const { width } = Dimensions.get('window');
 
 export const ProfileCard: React.FC<ProfileCardProps> = ({
   name,
@@ -53,10 +52,15 @@ export const ProfileCard: React.FC<ProfileCardProps> = ({
           )}
 
           {/* 온라인 상태 표시 */}
-          <View style={[styles.statusIndicator, {
-            backgroundColor: theme.colors.success,
-            borderColor: theme.colors.background.card
-          }]} />
+          <View
+            style={[
+              styles.statusIndicator,
+              {
+                backgroundColor: theme.colors.success,
+                borderColor: theme.colors.background.card,
+              },
+            ]}
+          />
         </View>
 
         {/* 사용자 정보 */}

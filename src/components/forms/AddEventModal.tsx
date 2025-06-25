@@ -1,24 +1,30 @@
-import React, { useState, useEffect } from 'react';
-import {
-  View,
-  Text,
-  Modal,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet,
-  ScrollView,
-  Alert,
-  SafeAreaView,
-  StatusBar,
-  Animated,
-  Dimensions,
-  Switch,
-} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+import React, { useEffect, useState } from 'react';
+import {
+  Alert,
+  Dimensions,
+  Modal,
+  SafeAreaView,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Switch,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+  withTiming,
+} from 'react-native-reanimated';
+
 import { useTheme } from '../../contexts/ThemeContext';
 
-const { width, height } = Dimensions.get('window');
+const { height } = Dimensions.get('window');
 
 interface Event {
   id: string;
@@ -115,7 +121,12 @@ const AddEventModal: React.FC<AddEventModalProps> = ({
   const [locationInputFocused, setLocationInputFocused] = useState(false);
 
   // 애니메이션
-  const [slideAnimation] = useState(new Animated.Value(height));
+  const slideAnimation = useSharedValue(height);
+
+  // 애니메이션 스타일
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: slideAnimation.value }],
+  }));
 
   // 모달 표시 시 애니메이션
   useEffect(() => {
@@ -133,18 +144,12 @@ const AddEventModal: React.FC<AddEventModalProps> = ({
       setShowLocationSuggestions(false);
       setLocationInputFocused(false);
 
-      Animated.spring(slideAnimation, {
-        toValue: 0,
-        useNativeDriver: true,
-        tension: 100,
-        friction: 8,
-      }).start();
+      slideAnimation.value = withSpring(0, {
+        damping: 15,
+        stiffness: 100,
+      });
     } else {
-      Animated.timing(slideAnimation, {
-        toValue: height,
-        duration: 300,
-        useNativeDriver: true,
-      }).start();
+      slideAnimation.value = withTiming(height, { duration: 300 });
     }
   }, [visible]);
 
@@ -509,8 +514,8 @@ const AddEventModal: React.FC<AddEventModalProps> = ({
             styles.modalContainer,
             {
               backgroundColor: theme.colors.background.primary,
-              transform: [{ translateY: slideAnimation }],
             },
+            animatedStyle,
           ]}
         >
           <SafeAreaView style={styles.safeArea}>

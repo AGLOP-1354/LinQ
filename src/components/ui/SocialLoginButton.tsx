@@ -1,15 +1,9 @@
 import * as Haptics from 'expo-haptics';
 import React from 'react';
-import {
-  Animated,
-  StyleSheet,
-  Text,
-  TextStyle,
-  TouchableOpacity,
-  View,
-  ViewStyle,
-} from 'react-native';
+import { StyleSheet, Text, TextStyle, TouchableOpacity, View, ViewStyle } from 'react-native';
+import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import Svg, { G, Path } from 'react-native-svg';
+
 import { useTheme } from '../../contexts/ThemeContext';
 
 interface SocialLoginButtonProps {
@@ -68,7 +62,7 @@ export default function SocialLoginButton({
   disabled = false,
 }: SocialLoginButtonProps) {
   const { theme } = useTheme();
-  const scaleValue = React.useRef(new Animated.Value(1)).current;
+  const scaleValue = useSharedValue(1);
 
   const getButtonConfig = () => {
     switch (provider) {
@@ -106,26 +100,27 @@ export default function SocialLoginButton({
 
   const config = getButtonConfig();
 
+  // 애니메이션 스타일
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scaleValue.value }],
+  }));
+
   const handlePressIn = () => {
     if (!disabled) {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      Animated.spring(scaleValue, {
-        toValue: 0.96,
-        useNativeDriver: true,
-        tension: 150,
-        friction: 8,
-      }).start();
+      scaleValue.value = withSpring(0.96, {
+        damping: 15,
+        stiffness: 150,
+      });
     }
   };
 
   const handlePressOut = () => {
     if (!disabled) {
-      Animated.spring(scaleValue, {
-        toValue: 1,
-        useNativeDriver: true,
-        tension: 150,
-        friction: 8,
-      }).start();
+      scaleValue.value = withSpring(1, {
+        damping: 15,
+        stiffness: 150,
+      });
     }
   };
 
@@ -150,14 +145,7 @@ export default function SocialLoginButton({
   };
 
   return (
-    <Animated.View
-      style={[
-        buttonStyle,
-        {
-          transform: [{ scale: scaleValue }],
-        },
-      ]}
-    >
+    <Animated.View style={[buttonStyle, animatedStyle]}>
       <TouchableOpacity
         style={styles.touchable}
         onPress={handlePress}

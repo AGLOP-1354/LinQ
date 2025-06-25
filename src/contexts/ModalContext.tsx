@@ -1,9 +1,12 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, ReactNode, useContext, useState } from 'react';
 
 interface ModalContextType {
   isAddEventModalVisible: boolean;
   showAddEventModal: () => void;
   hideAddEventModal: () => void;
+  isNaturalLanguageDrawerVisible: boolean;
+  showNaturalLanguageDrawer: () => void;
+  hideNaturalLanguageDrawer: () => void;
   handleAISchedule: () => void;
   handleVoiceInput: () => void;
 }
@@ -24,18 +27,22 @@ interface ModalProviderProps {
 
 export const ModalProvider: React.FC<ModalProviderProps> = ({ children }) => {
   const [isAddEventModalVisible, setIsAddEventModalVisible] = useState(false);
+  const [isNaturalLanguageDrawerVisible, setIsNaturalLanguageDrawerVisible] = useState(false);
 
   const showAddEventModal = () => setIsAddEventModalVisible(true);
   const hideAddEventModal = () => setIsAddEventModalVisible(false);
 
+  const showNaturalLanguageDrawer = () => setIsNaturalLanguageDrawerVisible(true);
+  const hideNaturalLanguageDrawer = () => setIsNaturalLanguageDrawerVisible(false);
+
   const handleAISchedule = () => {
-    // TODO: AI 일정 등록 모달 또는 AI 채팅 화면으로 이동
-    console.log('AI 일정 등록');
+    // AI 일정 등록 - 자연어 드로어 열기
+    showNaturalLanguageDrawer();
   };
 
   const handleVoiceInput = () => {
-    // TODO: 음성 입력 모달 표시
-    console.log('음성 입력');
+    // 음성 입력 - 자연어 드로어를 음성 모드로 열기
+    showNaturalLanguageDrawer();
   };
 
   return (
@@ -44,6 +51,9 @@ export const ModalProvider: React.FC<ModalProviderProps> = ({ children }) => {
         isAddEventModalVisible,
         showAddEventModal,
         hideAddEventModal,
+        isNaturalLanguageDrawerVisible,
+        showNaturalLanguageDrawer,
+        hideNaturalLanguageDrawer,
         handleAISchedule,
         handleVoiceInput,
       }}

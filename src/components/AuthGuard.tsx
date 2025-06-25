@@ -1,8 +1,10 @@
 import { useRouter, useSegments } from 'expo-router';
-import React from 'react';
+import React, { useState } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
+
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
+import SplashScreen from './SplashScreen';
 
 interface AuthGuardProps {
   children: React.ReactNode;
@@ -13,9 +15,15 @@ export default function AuthGuard({ children }: AuthGuardProps) {
   const { theme } = useTheme();
   const router = useRouter();
   const segments = useSegments();
+  const [showSplash, setShowSplash] = useState(true);
+
+  const handleSplashFinish = () => {
+    setShowSplash(false);
+  };
 
   React.useEffect(() => {
-    if (isLoading) return; // 로딩 중일 때는 아무것도 하지 않음
+    // 스플래시가 아직 표시 중이거나 로딩 중일 때는 아무것도 하지 않음
+    if (showSplash || isLoading) return;
 
     const inAuthGroup = segments[0] === '(auth)';
 
@@ -26,9 +34,14 @@ export default function AuthGuard({ children }: AuthGuardProps) {
       // 로그인되었고 auth 그룹에 있는 경우 메인 앱으로 이동
       router.replace('/(tabs)');
     }
-  }, [isAuthenticated, isLoading, segments]);
+  }, [isAuthenticated, isLoading, segments, showSplash]);
 
-  // 로딩 중일 때 보여줄 스플래시 화면
+  // 스플래시 화면 표시
+  if (showSplash) {
+    return <SplashScreen onFinish={handleSplashFinish} />;
+  }
+
+  // 로딩 중일 때 보여줄 로딩 화면 (스플래시 이후)
   if (isLoading) {
     return (
       <View style={[styles.loadingContainer, { backgroundColor: theme.colors.background.primary }]}>

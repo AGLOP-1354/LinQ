@@ -272,8 +272,8 @@ interface UserSession {
   message: string;
   data: {
     user: User;
-    accessToken: string;
-    refreshToken: string;
+  accessToken: string;
+  refreshToken: string;
   }
 }
 ```
@@ -292,9 +292,9 @@ interface UserSession {
 {
   success: boolean;
   data: {
-    user: User;
-    accessToken: string;
-    refreshToken: string;
+  user: User;
+  accessToken: string;
+  refreshToken: string;
   }
 }
 ```
@@ -334,7 +334,7 @@ Authorization: Bearer<refreshToken>;
 {
   success: boolean;
   data: {
-    events: Event[];
+  events: Event[];
     total: number;
     hasMore: boolean;
   };
@@ -361,7 +361,7 @@ Authorization: Bearer<refreshToken>;
   success: boolean;
   message: string;
   data: {
-    event: Event;
+  event: Event;
   };
 }
 ```
@@ -382,7 +382,7 @@ Authorization: Bearer<refreshToken>;
 {
   success: boolean;
   data: {
-    event: Event;
+  event: Event;
   };
 }
 ```
@@ -443,7 +443,7 @@ Authorization: Bearer<refreshToken>;
   success: boolean;
   data: {
     priority: 'HIGH' | 'MEDIUM' | 'LOW';
-    confidence: number;
+  confidence: number;
     reasoning: string;
     keywords: string[];
   };
