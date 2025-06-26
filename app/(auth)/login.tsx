@@ -3,21 +3,26 @@ import { useRouter } from 'expo-router';
 import React, { useEffect } from 'react';
 import { Alert, SafeAreaView, StatusBar, StyleSheet, Text, View } from 'react-native';
 import Animated, {
-  interpolate,
-  useAnimatedStyle,
-  useSharedValue,
-  withDelay,
-  withTiming,
+    interpolate,
+    useAnimatedStyle,
+    useSharedValue,
+    withDelay,
+    withTiming,
 } from 'react-native-reanimated';
 import LinQLogo from '../../src/components/ui/LinQLogo';
 import SocialLoginButton from '../../src/components/ui/SocialLoginButton';
 import { createDemoUser, useAuth } from '../../src/contexts/AuthContext';
 import { useTheme } from '../../src/contexts/ThemeContext';
+import kakaoAuthService from '../../src/services/kakaoAuth.service';
+import { debugKakaoLogin, validateKakaoSetup } from '../../src/utils/debugKakao';
 
 export default function LoginScreen() {
   const router = useRouter();
   const { theme } = useTheme();
   const { login } = useAuth();
+
+  // 로그인 상태 관리
+  const [isLoggingIn, setIsLoggingIn] = React.useState(false);
 
   // 애니메이션 values
   const fadeAnim = useSharedValue(0);
@@ -44,6 +49,15 @@ export default function LoginScreen() {
   }));
 
   useEffect(() => {
+    // 디버깅 정보 출력
+    debugKakaoLogin();
+
+    // 카카오 설정 검증
+    const validation = validateKakaoSetup();
+    if (!validation.isValid) {
+      console.warn('⚠️ 카카오 설정 문제:', validation.errors);
+    }
+
     // 페이지 진입 애니메이션 시퀀스
     logoAnim.value = withTiming(1, { duration: 800 });
 
@@ -51,21 +65,45 @@ export default function LoginScreen() {
     slideAnim.value = withDelay(400, withTiming(0, { duration: 600 }));
   }, []);
 
-  const handleSocialLogin = async (provider: 'kakao' | 'google' | 'apple') => {
+    const handleSocialLogin = async (provider: 'kakao' | 'google' | 'apple') => {
+    // 이미 로그인 중이면 중복 요청 방지
+    if (isLoggingIn) {
+      Alert.alert('알림', '로그인이 진행 중입니다. 잠시만 기다려주세요.', [{ text: '확인' }]);
+      return;
+    }
+
     try {
-      // 실제 소셜 로그인 구현 시에는 해당 SDK를 사용
-      // 현재는 데모용으로 가상의 사용자 데이터 생성
-      const demoUser = createDemoUser(provider);
+      setIsLoggingIn(true);
 
-      await login(demoUser);
+      if (provider === 'kakao') {
+        console.log('🔄 카카오 로그인 시작...');
 
-      // AuthGuard에서 자동으로 메인 앱으로 리다이렉트됨
-      Alert.alert('로그인 성공', `${provider} 계정으로 로그인되었습니다.`, [{ text: '확인' }]);
+        // 실제 카카오 로그인 처리
+        const result = await kakaoAuthService.login();
+
+        if (result.success && result.user) {
+          console.log('✅ 카카오 로그인 성공:', result.user.name);
+          await login(result.user);
+          Alert.alert('로그인 성공', '카카오 계정으로 로그인되었습니다.', [{ text: '확인' }]);
+        } else {
+          console.log('❌ 카카오 로그인 실패:', result.error);
+          Alert.alert('로그인 실패', result.error || '카카오 로그인에 실패했습니다.', [
+            { text: '확인' },
+          ]);
+        }
+      } else {
+        // Google, Apple은 데모용으로 처리 (추후 구현 가능)
+        const demoUser = createDemoUser(provider);
+        await login(demoUser);
+        Alert.alert('로그인 성공', `${provider} 계정으로 로그인되었습니다.`, [{ text: '확인' }]);
+      }
     } catch (error) {
+      console.error('❌ 로그인 에러:', error);
       Alert.alert('로그인 실패', '로그인 중 오류가 발생했습니다. 다시 시도해주세요.', [
         { text: '확인' },
       ]);
-      console.error('로그인 에러:', error);
+    } finally {
+      setIsLoggingIn(false);
     }
   };
 
@@ -105,11 +143,23 @@ export default function LoginScreen() {
             </Text>
 
             <View style={styles.buttonContainer}>
-              <SocialLoginButton provider='kakao' onPress={handleKakaoLogin} />
+              <SocialLoginButton
+                provider='kakao'
+                onPress={handleKakaoLogin}
+                disabled={isLoggingIn}
+              />
 
-              <SocialLoginButton provider='google' onPress={handleGoogleLogin} />
+              <SocialLoginButton
+                provider='google'
+                onPress={handleGoogleLogin}
+                disabled={isLoggingIn}
+              />
 
-              <SocialLoginButton provider='apple' onPress={handleAppleLogin} />
+              <SocialLoginButton
+                provider='apple'
+                onPress={handleAppleLogin}
+                disabled={isLoggingIn}
+              />
             </View>
           </View>
         </Animated.View>

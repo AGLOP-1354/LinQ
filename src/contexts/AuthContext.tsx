@@ -65,6 +65,16 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const logout = async () => {
     try {
+      // 카카오 로그인 사용자인 경우 카카오 로그아웃도 처리
+      if (user?.provider === 'kakao') {
+        try {
+          const { default: kakaoAuthService } = await import('../services/kakaoAuth.service');
+          await kakaoAuthService.logout();
+        } catch (importError) {
+          console.warn('카카오 로그아웃 서비스 로드 실패:', importError);
+        }
+      }
+
       // AsyncStorage에서 사용자 정보 제거
       await AsyncStorage.removeItem(AUTH_STORAGE_KEY);
       setUser(null);
