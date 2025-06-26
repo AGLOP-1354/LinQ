@@ -1,0 +1,126 @@
+# LinQ Supabase 프로젝트 설정
+# 확장성과 보안을 고려한 구성
+
+project_id = "noajbbdvjcsmiwcmmsza"  # LinQ 프로젝트 ID
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "storage", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[auth]
+enabled = true
+port = 54324
+site_url = "http://localhost:3000"
+additional_redirect_urls = [
+  "exp://localhost:19000",
+  "exp://192.168.1.100:19000",
+  "linq://auth/callback"
+]
+jwt_expiry = 3600
+refresh_token_rotation_enabled = true
+security_update_password_require_reauthentication = true
+
+[auth.email]
+enable_signup = false  # 카카오 로그인만 허용
+double_confirm_changes = true
+enable_confirmations = false
+
+# 소셜 로그인 설정 (카카오)
+[auth.external.kakao]
+enabled = true
+client_id = "env(KAKAO_CLIENT_ID)"
+secret = "env(KAKAO_CLIENT_SECRET)"
+redirect_uri = "http://localhost:54321/auth/v1/callback"
+
+[db]
+port = 54322
+shadow_port = 54320
+major_version = 15
+
+# Edge Functions 설정
+[functions]
+enabled = true
+verify_jwt = true
+import_map = "./functions/import_map.json"
+
+# 실시간 기능 설정
+[realtime]
+enabled = true
+ip_version = "ipv4"
+db_host = "localhost"
+db_port = 54322
+db_user = "supabase_admin"
+db_password = "env(POSTGRES_PASSWORD)"
+db_name = "postgres"
+api_host = "localhost"
+api_port = 54321
+secure_channels = true
+log_level = "info"
+jwt_claim_validators = "{}"
+
+[storage]
+enabled = true
+file_size_limit = "50MiB"
+buckets = [
+  { name = "avatars", public = true },
+  { name = "attachments", public = false }
+]
+
+[inbound_smtp]
+enabled = false
+
+[studio]
+enabled = true
+port = 54323
+api_url = "http://localhost:54321"
+
+# 개발 환경 설정
+[local_development]
+enabled = true
+
+# 보안 설정
+[security]
+csrf_protection = true
+request_id_header = "x-request-id"
+
+# 로깅 설정
+[logging]
+level = "info"
+
+# Analytics 및 모니터링
+[analytics]
+enabled = true
+backend = "postgres"
+
+# 환경별 설정
+[env.development]
+ENVIRONMENT = "development"
+DEBUG = "true"
+LOG_LEVEL = "debug"
+
+[env.staging]
+ENVIRONMENT = "staging"
+DEBUG = "false"
+LOG_LEVEL = "info"
+
+[env.production]
+ENVIRONMENT = "production"
+DEBUG = "false"
+LOG_LEVEL = "error"
+SENTRY_DSN = "env(SENTRY_DSN)"
+
+# 성능 최적화
+[performance]
+statement_timeout = "30s"
+idle_in_transaction_session_timeout = "10min"
+max_connections = 100
+shared_preload_libraries = ["pg_stat_statements"]
+
+# 백업 설정
+[backup]
+enabled = true
+schedule = "0 2 * * *"  # 매일 새벽 2시
+retention_days = 30
